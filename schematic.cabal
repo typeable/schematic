@@ -24,6 +24,7 @@ library
                      , DeriveFunctor
                      , DeriveFoldable
                      , DeriveDataTypeable
+                     , FlexibleContexts
                      , FlexibleInstances
                      , FunctionalDependencies
                      , GADTs
@@ -46,6 +47,7 @@ library
                      , recursion-schemes
                      , singletons
                      , regex-compat
+                     , text
                      , vinyl
   hs-source-dirs:      src
   default-language:    Haskell2010
