@@ -17,6 +17,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Data.Schematic
+                     , Data.Schematic.Schema
   -- ghc-options:
   -- other-modules:
   default-extensions:  ConstraintKinds
@@ -44,10 +45,48 @@ library
                      , TypeOperators
                      , TypeSynonymInstances
   build-depends:       base >=4.9 && <4.10
-                     , recursion-schemes
-                     , singletons
                      , regex-compat
                      , text
                      , vinyl
   hs-source-dirs:      src
   default-language:    Haskell2010
+
+test-suite spec
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   test
+  main-is:          Spec.hs
+  default-language:   Haskell2010
+  default-extensions:  ConstraintKinds
+                     , DataKinds
+                     , DeriveFunctor
+                     , DeriveFoldable
+                     , DeriveDataTypeable
+                     , FlexibleContexts
+                     , FlexibleInstances
+                     , FunctionalDependencies
+                     , GADTs
+                     , KindSignatures
+                     , InstanceSigs
+                     , MultiParamTypeClasses
+                     , OverloadedStrings
+                     , PolyKinds
+                     , QuasiQuotes
+                     , PartialTypeSignatures
+                     , RecordWildCards
+                     , ScopedTypeVariables
+                     , TemplateHaskell
+                     , TypeApplications
+                     , TypeFamilies
+                     , TypeInType
+                     , TypeOperators
+                     , TypeSynonymInstances
+  build-depends:       HUnit
+                     , base >=4.9 && <4.10
+                     , hspec >= 2.2.0
+                     , hspec-core
+                     , hspec-discover
+                     , regex-compat
+                     , schematic
+                     , text
+                     , vinyl
+  other-modules:       SchemaSpec

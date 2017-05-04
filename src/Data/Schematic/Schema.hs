@@ -7,14 +7,9 @@
 
 module Data.Schematic.Schema where
 
-import Data.Functor.Foldable
 import Data.Kind hiding (Type)
 import Data.Proxy
-import Data.Singletons.TH
 import Data.Text (Text)
-import Data.Type.Equality
-import Data.Vinyl
-import Data.Vinyl.Functor
 import GHC.TypeLits (KnownNat, natVal, KnownSymbol, symbolVal, Symbol, Nat)
 
 
@@ -133,17 +128,11 @@ instance (Verifiable 'JText cs) => Schematic (SText cs) where
   type JT (SText cs) = 'JText
   build _ = constructor (Proxy @(JT (SText cs))) $ schema (Proxy @JText) (Proxy @cs)
 
--- example
-type TextSchema = SText '[LengthEqNat 3]
-
 data SNumber cs
 
 instance (Verifiable 'JNumber cs) => Schematic (SNumber cs) where
   type JT (SNumber cs) = 'JNumber
   build _ = constructor (Proxy @(JT (SNumber cs))) $ schema (Proxy @'JNumber) (Proxy @cs)
-
--- example
-type NumberSchema = SNumber '[ Gt 3]
 
 instance (Verifiable (JT ty) cs, SchemaConstructor (JT ty)) => Schematic (Field field ty cs) where
   type JT (Field field ty cs) = JT ty
@@ -170,5 +159,3 @@ instance Schematic (SObject els) => TopLevel (SObject els)
 --   => Proxy (SObject els)
 --   -> Schema
 -- toSchema p = constructor p $ schema (Proxy @(JT (SObject els))) (Proxy @els)
-
-type TestStruct = SObject '[ Field "carrier" 'JText [SText '[LengthEqNat 3] ] ]
