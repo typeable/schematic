@@ -4,11 +4,12 @@ import Data.Proxy
 import Data.Schematic.Schema
 import Test.Hspec
 
-type TextSchema = SText '[LengthEqNat 3]
+type TextSchema = SText '[LengthEqNat 2]
 
 type NumberSchema = SNumber '[ Gt 3]
 
-type ObjectSchema = SObject '[ Field "carrier" 'JText [TextSchema] ]
+type ObjectSchema
+  = SObject '[ Field "carrier" 'JText '[LengthEqNat 2], Field "number_gt_3" 'JNumber '[Gt 3] ]
 
 spec :: Spec
 spec = do

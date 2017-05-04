@@ -1,7 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE TypeInType #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fprint-explicit-kinds #-}
 
@@ -20,7 +19,6 @@ data JType
   | JArray
   | JObject
   | JNull
-
 
 type family Repr (ty :: JType) :: * where
   Repr 'JText = String -- because of matchRegex
@@ -45,37 +43,38 @@ instance KnownNat nat => Constrained 'JNumber (Gt nat) where
 
 data Field field ty schema
 
-instance (SchemaConstructor (JT jty), Verifiable (JT jty) cs, KnownSymbol field)
-  => Constrained JObject (Field field ty cs) where
-  cRep _ _ =
-    (symbolVal (Proxy @field), constructor (Proxy @(JT jty))
-      $ schema (Proxy @(JT jty)) (Proxy @cs))
-
 data Empty
 
 class Verifiable ty cs where
   schema :: Proxy ty -> Proxy cs -> [CRepr ty]
 
 instance
-  (Constrained 'JText c, Verifiable 'JText cs) => Verifiable 'JText (c ': cs) where
-  schema _ _ = cRep (Proxy @'JText) (Proxy @c) : schema (Proxy @'JText) (Proxy @cs)
+  ( Constrained 'JText c
+  , Verifiable 'JText cs )
+  => Verifiable 'JText (c ': cs) where
+  schema _ _ = cRep (Proxy @'JText) (Proxy @c)
+    : schema (Proxy @'JText) (Proxy @cs)
 
 instance
-  (Constrained 'JNumber c, Verifiable 'JNumber cs) => Verifiable 'JNumber (c ': cs) where
-  schema _ _ = cRep (Proxy @'JNumber) (Proxy @c) : schema (Proxy @'JNumber) (Proxy @cs)
+  ( Constrained 'JNumber c
+  , Verifiable 'JNumber cs )
+  => Verifiable 'JNumber (c ': cs) where
+  schema _ _ = cRep (Proxy @'JNumber) (Proxy @c)
+    : schema (Proxy @'JNumber) (Proxy @cs)
 
 instance Verifiable jty '[] where
   schema _ _ = []
 
 instance
-  (Constrained 'JObject c, Verifiable 'JObject cs, KnownSymbol field)
-  => Verifiable 'JObject ((Field field jty c) ': cs) where
-  schema _ _ = cRep (Proxy @'JObject) (Proxy @c) : schema (Proxy @'JObject) (Proxy @cs)
-
--- type family VerifiableFields (ty :: JType) (els :: [k]) :: Constraint where
---   VerifiableFields ty '[] = ()
---   VerifiableFields ty ((Field f jty s) ': elss)
---     = (Verifiable jty s, VerifiableFields ty elss)
+  ( SchemaConstructor jty
+  , Verifiable 'JObject fs
+  , KnownSymbol field
+  , Verifiable jty cs )
+  => Verifiable 'JObject ((Field field jty cs) ': fs) where
+  schema _ _ = (fieldName, fieldSchema) : schema (Proxy @'JObject) (Proxy @fs)
+    where
+      fieldName   = symbolVal (Proxy @field)
+      fieldSchema = constructor (Proxy @jty) $ schema (Proxy @jty) (Proxy @cs)
 
 type family CRepr (jty :: JType) :: * where
   CRepr JText  = TextConstraint
@@ -102,9 +101,9 @@ data Schema
   deriving (Show, Eq)
 
 -- | Apply constraint for each element of list
-type family AllSatisfy (c :: k -> Constraint) (s :: [k]) :: Constraint where
-  AllSatisfy c '[]       = ()
-  AllSatisfy c (a ': as) = (c a, AllSatisfy c as)
+-- type family AllSatisfy (c :: k -> Constraint) (s :: [k]) :: Constraint where
+--   AllSatisfy c '[]       = ()
+--   AllSatisfy c (a ': as) = (c a, AllSatisfy c as)
 
 class SchemaConstructor jty where
   constructor :: Proxy jty -> [CRepr jty] -> Schema
@@ -141,8 +140,7 @@ instance (Verifiable (JT ty) cs, SchemaConstructor (JT ty)) => Schematic (Field 
 
 data SObject els
 
-instance (els ~ '[k], Verifiable 'JObject els, AllSatisfy Schematic els)
-  => Schematic (SObject els) where
+instance (Verifiable 'JObject els) => Schematic (SObject els) where
   type JT (SObject els) = 'JObject
   build _ =
     constructor (Proxy @(JT (SObject els)))
