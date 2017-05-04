@@ -24,6 +24,12 @@ type family Repr (ty :: JType) :: * where
   Repr 'JText = String -- because of matchRegex
   Repr 'JNumber = Double
 
+type family CRepr (jty :: JType) :: * where
+  CRepr JText  = TextConstraint
+  CRepr JNumber = NumberConstraint
+  CRepr JObject = (String, Schema)
+  CRepr JArray = ArrayConstraint
+
 class Constrained (ty :: JType) c where
   cRep :: Proxy ty -> Proxy c -> CRepr ty
 
@@ -38,6 +44,9 @@ data Gt nat
 
 instance KnownNat nat => Constrained 'JNumber (Gt nat) where
   cRep _ _ = Gt $ natVal (Proxy @nat)
+
+instance KnownNat nat => Constrained 'JArray (LengthEqNat nat) where
+  cRep _ _ = LengthArrEq $ natVal (Proxy @nat)
 
 -- /Validators
 
@@ -66,6 +75,13 @@ instance Verifiable jty '[] where
   schema _ _ = []
 
 instance
+  ( Constrained 'JArray c
+  , Verifiable 'JArray cs )
+  => Verifiable 'JArray (c ': cs) where
+  schema _ _ = cRep (Proxy @'JArray) (Proxy @c)
+    : schema (Proxy @'JArray) (Proxy @cs)
+
+instance
   ( SchemaConstructor jty
   , Verifiable 'JObject fs
   , KnownSymbol field
@@ -75,11 +91,6 @@ instance
     where
       fieldName   = symbolVal (Proxy @field)
       fieldSchema = constructor (Proxy @jty) $ schema (Proxy @jty) (Proxy @cs)
-
-type family CRepr (jty :: JType) :: * where
-  CRepr JText  = TextConstraint
-  CRepr JNumber = NumberConstraint
-  CRepr JObject = (String, Schema)
 
 data TextConstraint
   = LengthEq Integer
@@ -93,11 +104,15 @@ data NumberConstraint
   | Eq Integer
   deriving (Show, Eq)
 
+data ArrayConstraint
+  = LengthArrEq Integer
+  deriving (Show, Eq)
+
 data Schema
   = SchemaText [TextConstraint]
   | SchemaNumber [NumberConstraint]
   | SchemaObject [(String, Schema)]
-  | SchemaArray Schema
+  | SchemaArray [ArrayConstraint] Schema
   deriving (Show, Eq)
 
 -- | Apply constraint for each element of list
@@ -117,7 +132,7 @@ instance SchemaConstructor 'JNumber where
 instance SchemaConstructor 'JObject where
   constructor _ = SchemaObject
 
-class (SchemaConstructor (JT ty)) => Schematic ty where
+class Schematic ty where
   type JT (ty :: k) :: JType
   build :: Proxy ty -> Schema
 
@@ -131,9 +146,13 @@ data SNumber cs
 
 instance (Verifiable 'JNumber cs) => Schematic (SNumber cs) where
   type JT (SNumber cs) = 'JNumber
-  build _ = constructor (Proxy @(JT (SNumber cs))) $ schema (Proxy @'JNumber) (Proxy @cs)
+  build _ = constructor (Proxy @(JT (SNumber cs)))
+    $ schema (Proxy @'JNumber) (Proxy @cs)
 
-instance (Verifiable (JT ty) cs, SchemaConstructor (JT ty)) => Schematic (Field field ty cs) where
+instance
+  ( Verifiable (JT ty) cs
+  , SchemaConstructor (JT ty) )
+  => Schematic (Field field ty cs) where
   type JT (Field field ty cs) = JT ty
   build _ = constructor (Proxy @(JT (Field field ty cs)))
     $ schema (Proxy @(JT (Field field ty cs))) (Proxy @cs)
@@ -146,10 +165,24 @@ instance (Verifiable 'JObject els) => Schematic (SObject els) where
     constructor (Proxy @(JT (SObject els)))
       $ schema (Proxy @(JT (SObject els))) (Proxy @els)
 
+data SArray cs s
+
+instance
+  ( Schematic s
+  , Verifiable 'JArray cs )
+  => Schematic (SArray cs s) where
+  type JT (SArray cs s) = 'JArray
+  build _ =
+    SchemaArray
+      (schema (Proxy @'JArray) (Proxy @cs))
+      (build (Proxy @s))
+
 -- | Shows it's top-level definition according to the json-schema
 class TopLevel spec
 
 instance Schematic (SObject els) => TopLevel (SObject els)
+
+instance Schematic (SArray cs s) => TopLevel (SArray cs s)
 
 -- | TODO: abstract over objects and arrays
 -- toSchema
