@@ -18,10 +18,12 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Data.Schematic
                      , Data.Schematic.Schema
+                     , Data.Schematic.Validation
   -- ghc-options:
   -- other-modules:
   default-extensions:  ConstraintKinds
                      , DataKinds
+                     , DefaultSignatures
                      , DeriveFunctor
                      , DeriveFoldable
                      , DeriveDataTypeable
@@ -31,12 +33,15 @@ library
                      , GADTs
                      , KindSignatures
                      , InstanceSigs
+                     , LambdaCase
                      , MultiParamTypeClasses
                      , OverloadedStrings
                      , PolyKinds
                      , QuasiQuotes
                      , PartialTypeSignatures
+                     , RankNTypes
                      , RecordWildCards
+                     , StandaloneDeriving
                      , ScopedTypeVariables
                      , TemplateHaskell
                      , TypeApplications
@@ -44,8 +49,10 @@ library
                      , TypeInType
                      , TypeOperators
                      , TypeSynonymInstances
+                     , UndecidableInstances
   build-depends:       base >=4.9 && <4.10
                      , regex-compat
+                     , singletons
                      , text
                      , vinyl
   hs-source-dirs:      src

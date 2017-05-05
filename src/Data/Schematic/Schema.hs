@@ -8,27 +8,10 @@ module Data.Schematic.Schema where
 
 import Data.Kind hiding (Type)
 import Data.Proxy
+import Data.Schematic.Validation
 import Data.Text (Text)
 import GHC.TypeLits (KnownNat, natVal, KnownSymbol, symbolVal, Symbol, Nat)
 
-
--- | Type Tags
-data JType
-  = JText
-  | JNumber
-  | JArray
-  | JObject
-  | JNull
-
-type family Repr (ty :: JType) :: * where
-  Repr 'JText = String -- because of matchRegex
-  Repr 'JNumber = Double
-
-type family CRepr (jty :: JType) :: * where
-  CRepr JText  = TextConstraint
-  CRepr JNumber = NumberConstraint
-  CRepr JObject = (String, Schema)
-  CRepr JArray = ArrayConstraint
 
 class Constrained (ty :: JType) c where
   cRep :: Proxy ty -> Proxy c -> CRepr ty
@@ -92,45 +75,17 @@ instance
       fieldName   = symbolVal (Proxy @field)
       fieldSchema = constructor (Proxy @jty) $ schema (Proxy @jty) (Proxy @cs)
 
-data TextConstraint
-  = LengthEq Integer
-  | LengthLe Integer
-  | LengthGt Integer
-  deriving (Show, Eq)
-
-data NumberConstraint
-  = Le Integer
-  | Gt Integer
-  | Eq Integer
-  deriving (Show, Eq)
-
-data ArrayConstraint
-  = LengthArrEq Integer
-  deriving (Show, Eq)
-
-data Schema
-  = SchemaText [TextConstraint]
-  | SchemaNumber [NumberConstraint]
-  | SchemaObject [(String, Schema)]
-  | SchemaArray [ArrayConstraint] Schema
-  deriving (Show, Eq)
-
--- | Apply constraint for each element of list
--- type family AllSatisfy (c :: k -> Constraint) (s :: [k]) :: Constraint where
---   AllSatisfy c '[]       = ()
---   AllSatisfy c (a ': as) = (c a, AllSatisfy c as)
-
 class SchemaConstructor jty where
   constructor :: Proxy jty -> [CRepr jty] -> Schema
 
 instance SchemaConstructor 'JText where
-  constructor _ = SchemaText
+  constructor _ = SchemaText SJText
 
 instance SchemaConstructor 'JNumber where
-  constructor _ = SchemaNumber
+  constructor _ = SchemaNumber SJNumber
 
 instance SchemaConstructor 'JObject where
-  constructor _ = SchemaObject
+  constructor _ = SchemaObject SJObject
 
 class Schematic ty where
   type JT (ty :: k) :: JType
@@ -174,6 +129,7 @@ instance
   type JT (SArray cs s) = 'JArray
   build _ =
     SchemaArray
+      SJArray
       (schema (Proxy @'JArray) (Proxy @cs))
       (build (Proxy @s))
 
