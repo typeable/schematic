@@ -51,6 +51,8 @@ library
                      , TypeSynonymInstances
                      , UndecidableInstances
   build-depends:       base >=4.9 && <4.10
+                     , deriving-compat
+                     , recursion-schemes
                      , regex-compat
                      , singletons
                      , text
@@ -92,6 +94,7 @@ test-suite spec
                      , hspec >= 2.2.0
                      , hspec-core
                      , hspec-discover
+                     , recursion-schemes
                      , regex-compat
                      , schematic
                      , text

@@ -6,10 +6,12 @@
 
 module Data.Schematic.Schema where
 
+import Data.Functor.Foldable
 import Data.Kind hiding (Type)
 import Data.Proxy
 import Data.Schematic.Validation
 import Data.Text (Text)
+import GHC.Generics
 import GHC.TypeLits (KnownNat, natVal, KnownSymbol, symbolVal, Symbol, Nat)
 
 
@@ -79,13 +81,13 @@ class SchemaConstructor jty where
   constructor :: Proxy jty -> [CRepr jty] -> Schema
 
 instance SchemaConstructor 'JText where
-  constructor _ = SchemaText SJText
+  constructor _ = Fix . SchemaText SJText
 
 instance SchemaConstructor 'JNumber where
-  constructor _ = SchemaNumber SJNumber
+  constructor _ = Fix . SchemaNumber SJNumber
 
 instance SchemaConstructor 'JObject where
-  constructor _ = SchemaObject SJObject
+  constructor _ = Fix . SchemaObject SJObject
 
 class Schematic ty where
   type JT (ty :: k) :: JType
@@ -128,10 +130,39 @@ instance
   => Schematic (SArray cs s) where
   type JT (SArray cs s) = 'JArray
   build _ =
-    SchemaArray
+    Fix $ SchemaArray
       SJArray
       (schema (Proxy @'JArray) (Proxy @cs))
       (build (Proxy @s))
+
+data Generate name ty
+
+instance
+  ( Verifiable JText cs
+  , KnownSymbol name, Schematic ty )
+  => Schematic (Generate name (SText cs)) where
+  type JT (Generate name (SText cs)) = JT (SText cs)
+  build _ = build (Proxy @(SText cs))
+
+instance
+  ( Verifiable JNumber cs
+  , KnownSymbol name, Schematic ty )
+  => Schematic (Generate name (SNumber cs)) where
+  type JT (Generate name (SNumber cs)) = JT (SNumber cs)
+  build _ = build (Proxy @(SNumber cs))
+
+instance
+  ( Verifiable JArray cs
+  , Schematic s )
+  => Schematic (Generate name (SArray cs s)) where
+  type JT (Generate name (SArray cs s)) = JT (SArray cs s)
+  build _ = build (Proxy @(SArray cs s))
+
+instance
+  (Verifiable JObject els)
+  => Schematic (Generate name (SObject els)) where
+  type JT (Generate name (SObject els)) = JT (SObject els)
+  build _ = build (Proxy @(SObject els))
 
 -- | Shows it's top-level definition according to the json-schema
 class TopLevel spec
