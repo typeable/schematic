@@ -81,13 +81,13 @@ class SchemaConstructor jty where
   constructor :: Proxy jty -> [CRepr jty] -> Schema
 
 instance SchemaConstructor 'JText where
-  constructor _ = Fix . SchemaText SJText
+  constructor _ = Fix . SchemaText
 
 instance SchemaConstructor 'JNumber where
-  constructor _ = Fix . SchemaNumber SJNumber
+  constructor _ = Fix . SchemaNumber
 
 instance SchemaConstructor 'JObject where
-  constructor _ = Fix . SchemaObject SJObject
+  constructor _ = Fix . SchemaObject
 
 class Schematic ty where
   type JT (ty :: k) :: JType
@@ -114,13 +114,16 @@ instance
   build _ = constructor (Proxy @(JT (Field field ty cs)))
     $ schema (Proxy @(JT (Field field ty cs))) (Proxy @cs)
 
-data SObject els
+data SObject typeName els
 
-instance (Verifiable 'JObject els) => Schematic (SObject els) where
-  type JT (SObject els) = 'JObject
+instance
+  ( Verifiable 'JObject els
+  , KnownSymbol typeName )
+  => Schematic (SObject typeName els) where
+  type JT (SObject typeName els) = 'JObject
   build _ =
-    constructor (Proxy @(JT (SObject els)))
-      $ schema (Proxy @(JT (SObject els))) (Proxy @els)
+    constructor (Proxy @(JT (SObject typeName els)))
+      $ schema (Proxy @(JT (SObject typeName els))) (Proxy @els)
 
 data SArray cs s
 
@@ -131,38 +134,8 @@ instance
   type JT (SArray cs s) = 'JArray
   build _ =
     Fix $ SchemaArray
-      SJArray
       (schema (Proxy @'JArray) (Proxy @cs))
       (build (Proxy @s))
-
-data Generate name ty
-
-instance
-  ( Verifiable JText cs
-  , KnownSymbol name, Schematic ty )
-  => Schematic (Generate name (SText cs)) where
-  type JT (Generate name (SText cs)) = JT (SText cs)
-  build _ = build (Proxy @(SText cs))
-
-instance
-  ( Verifiable JNumber cs
-  , KnownSymbol name, Schematic ty )
-  => Schematic (Generate name (SNumber cs)) where
-  type JT (Generate name (SNumber cs)) = JT (SNumber cs)
-  build _ = build (Proxy @(SNumber cs))
-
-instance
-  ( Verifiable JArray cs
-  , Schematic s )
-  => Schematic (Generate name (SArray cs s)) where
-  type JT (Generate name (SArray cs s)) = JT (SArray cs s)
-  build _ = build (Proxy @(SArray cs s))
-
-instance
-  (Verifiable JObject els)
-  => Schematic (Generate name (SObject els)) where
-  type JT (Generate name (SObject els)) = JT (SObject els)
-  build _ = build (Proxy @(SObject els))
 
 -- | Shows it's top-level definition according to the json-schema
 class TopLevel spec
