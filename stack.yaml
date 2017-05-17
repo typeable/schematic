@@ -36,9 +36,11 @@ resolver: lts-8.12
 # non-dependency (i.e. a user package), and its test suites and benchmarks
 # will not be run. This is useful for tweaking upstream packages.
 packages:
+- location:
+    git: https://github.com/typeable/validationt.git
+    commit: 24578c9fd408179358c641ee1fff0eb182591f4b
 - '.'
-# Dependency packages to be pulled from upstream that are not in the resolver
-# (e.g., acme-missiles-0.3)
+
 extra-deps: []
 
 # Override default flag values for local packages and extra-deps

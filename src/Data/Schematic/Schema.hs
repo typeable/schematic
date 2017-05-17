@@ -15,6 +15,13 @@ import GHC.Generics
 import GHC.TypeLits (KnownNat, natVal, KnownSymbol, symbolVal, Symbol, Nat)
 
 
+type family JT (s :: k) :: JType where
+  JT (SNumber cs)  = 'JNumber
+  JT (SText cs)    = 'JText
+  JT (SObject els) = 'JObject
+  JT (SArray cs s) = 'JArray
+  JT (Field field ty cs) = JT ty
+
 class Constrained (ty :: JType) c where
   cRep :: Proxy ty -> Proxy c -> CRepr ty
 
@@ -90,40 +97,33 @@ instance SchemaConstructor 'JObject where
   constructor _ = Fix . SchemaObject
 
 class Schematic ty where
-  type JT (ty :: k) :: JType
   build :: Proxy ty -> Schema
 
 data SText cs
 
 instance (Verifiable 'JText cs) => Schematic (SText cs) where
-  type JT (SText cs) = 'JText
   build _ = constructor (Proxy @(JT (SText cs))) $ schema (Proxy @JText) (Proxy @cs)
 
 data SNumber cs
 
 instance (Verifiable 'JNumber cs) => Schematic (SNumber cs) where
-  type JT (SNumber cs) = 'JNumber
   build _ = constructor (Proxy @(JT (SNumber cs)))
     $ schema (Proxy @'JNumber) (Proxy @cs)
 
 instance
   ( Verifiable (JT ty) cs
-  , SchemaConstructor (JT ty) )
+  , SchemaConstructor (JT ty))
   => Schematic (Field field ty cs) where
-  type JT (Field field ty cs) = JT ty
   build _ = constructor (Proxy @(JT (Field field ty cs)))
     $ schema (Proxy @(JT (Field field ty cs))) (Proxy @cs)
 
-data SObject typeName els
+data SObject els
 
 instance
-  ( Verifiable 'JObject els
-  , KnownSymbol typeName )
-  => Schematic (SObject typeName els) where
-  type JT (SObject typeName els) = 'JObject
+  ( Verifiable 'JObject els )
+  => Schematic (SObject els) where
   build _ =
-    constructor (Proxy @(JT (SObject typeName els)))
-      $ schema (Proxy @(JT (SObject typeName els))) (Proxy @els)
+    constructor (Proxy @'JObject) $ schema (Proxy @(JT (SObject els))) (Proxy @els)
 
 data SArray cs s
 
@@ -131,22 +131,21 @@ instance
   ( Schematic s
   , Verifiable 'JArray cs )
   => Schematic (SArray cs s) where
-  type JT (SArray cs s) = 'JArray
   build _ =
     Fix $ SchemaArray
       (schema (Proxy @'JArray) (Proxy @cs))
       (build (Proxy @s))
 
 -- | Shows it's top-level definition according to the json-schema
-class TopLevel spec
+class Schematic spec => TopLevel spec
 
-instance Schematic (SObject els) => TopLevel (SObject els)
+instance (Schematic (SObject els)) => TopLevel (SObject els)
 
 instance Schematic (SArray cs s) => TopLevel (SArray cs s)
 
 -- | TODO: abstract over objects and arrays
--- toSchema
---   :: forall els (e :: [k]). (e ~ '[], Verifiable (JT (SObject els)) e, Schematic (SObject els))
---   => Proxy (SObject els)
---   -> Schema
--- toSchema p = constructor p $ schema (Proxy @(JT (SObject els))) (Proxy @els)
+toSchema
+  :: forall spec. TopLevel spec
+  => Proxy spec
+  -> Schema
+toSchema = build
