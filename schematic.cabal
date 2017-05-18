@@ -36,6 +36,7 @@ library
                      , InstanceSigs
                      , LambdaCase
                      , MultiParamTypeClasses
+                     , OverloadedLists
                      , OverloadedStrings
                      , PolyKinds
                      , QuasiQuotes
@@ -56,10 +57,12 @@ library
                      , deriving-compat
                      , recursion-schemes
                      , regex-compat
+                     , scientific
                      , singletons
                      , text
                      , unordered-containers
                      , validationt >= 0.1.0.1
+                     , vector
                      , vinyl
   hs-source-dirs:      src
   default-language:    Haskell2010
@@ -81,6 +84,7 @@ test-suite spec
                      , KindSignatures
                      , InstanceSigs
                      , MultiParamTypeClasses
+                     , OverloadedLists
                      , OverloadedStrings
                      , PolyKinds
                      , QuasiQuotes
