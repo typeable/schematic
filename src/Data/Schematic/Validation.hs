@@ -1,12 +1,15 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -fprint-explicit-kinds #-}
 
 module Data.Schematic.Validation where
 
 import Control.Applicative
 import Control.Category ((<<<), (>>>))
+import Control.Monad
 import Data.Aeson as J
+import Data.Aeson.Types as J
 import Data.Eq.Deriving (deriveEq1)
 import Data.Foldable as F
 import Data.Functor.Classes
@@ -96,10 +99,6 @@ data instance Sing (schema :: Schema) where
   SSchemaObject :: Sing fields -> Sing (SchemaObject fields)
   SSchemaNull :: Sing SchemaNull
 
-type family MapSnd (l :: [(k, Schema)]) :: [Schema] where
-  MapSnd '[]             = '[]
-  MapSnd ( '(f,s) ': tl) = s ': MapSnd tl
-
 data FieldRepr :: (Symbol, Schema) -> Type where
   FieldRepr :: KnownSymbol name => JsonRepr schema -> FieldRepr '(name, schema)
 
@@ -110,12 +109,39 @@ data JsonRepr :: Schema -> Type where
   ReprArray :: V.Vector (JsonRepr s) -> JsonRepr (SchemaArray cs s)
   ReprObject :: Rec FieldRepr fs -> JsonRepr (SchemaObject fs)
 
+instance (SingI schema) => J.FromJSON (JsonRepr schema) where
+  parseJSON value = case sing :: Sing schema of
+    SSchemaText _    -> withText "String" (pure . ReprText) value
+    SSchemaNumber _  -> withScientific "Number" (pure . ReprNumber) value
+    SSchemaNull      -> pure ReprNull
+    SSchemaArray c s -> withArray "Array" f value
+      where
+        f v = do
+          values <- withSingI s $ traverse parseJSON v
+          pure $ ReprArray values
+    SSchemaObject fs -> ReprObject <$> withObject "Object" (demoteFields fs) value
+
+demoteFields
+  :: SList s
+  -> H.HashMap Text J.Value
+  -> Parser (Rec FieldRepr s)
+demoteFields SNil h
+  | H.null h  = pure RNil
+  | otherwise = mzero
+demoteFields (SCons (STuple2 (n :: Sing fn) s) tl) h = withKnownSymbol n $ do
+  let fieldName = T.pack $ symbolVal (Proxy @fn)
+  fieldRepr <- case H.lookup fieldName h of
+    Just v  -> FieldRepr <$> (withSingI s $ parseJSON v)
+    Nothing -> mzero
+  (fieldRepr :&) <$> demoteFields tl h
+
 instance J.ToJSON (JsonRepr a) where
-  toJSON (ReprText t) = J.String t
-  toJSON ReprNull = J.Null
+  toJSON ReprNull       = J.Null
+  toJSON (ReprText t)   = J.String t
   toJSON (ReprNumber n) = J.Number n
-  toJSON (ReprArray v) = J.Array $ toJSON <$> v
-  toJSON (ReprObject r) = let
+  toJSON (ReprArray v)  = J.Array $ toJSON <$> v
+  toJSON (ReprObject r) = J.Object . H.fromList . fold $ r
+    where
       extract
         :: forall name s
         .  (KnownSymbol name)
@@ -126,7 +152,6 @@ instance J.ToJSON (JsonRepr a) where
       fold = \case
         RNil                   -> []
         fr@(FieldRepr s) :& tl -> (extract fr) : fold tl
-    in J.Object . H.fromList . fold $ r
 
 type Spec
   = SchemaObject
