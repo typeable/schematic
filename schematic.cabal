@@ -19,7 +19,6 @@ library
   exposed-modules:     Data.Aeson.Validation
                      , Data.Schematic
                      , Data.Schematic.Schema
-                     , Data.Schematic.Validation
   -- ghc-options:
   -- other-modules:
   default-extensions:  ConstraintKinds
@@ -27,6 +26,7 @@ library
                      , DefaultSignatures
                      , DeriveFunctor
                      , DeriveFoldable
+                     , DeriveGeneric
                      , DeriveDataTypeable
                      , FlexibleContexts
                      , FlexibleInstances
@@ -55,10 +55,10 @@ library
   build-depends:       base >=4.9 && <4.10
                      , aeson >= 1
                      , deriving-compat
-                     , recursion-schemes
                      , regex-compat
                      , scientific
                      , singletons
+                     , smallcheck
                      , text
                      , unordered-containers
                      , validationt >= 0.1.0.1
@@ -76,6 +76,7 @@ test-suite spec
                      , DataKinds
                      , DeriveFunctor
                      , DeriveFoldable
+                     , DeriveGeneric
                      , DeriveDataTypeable
                      , FlexibleContexts
                      , FlexibleInstances
@@ -103,9 +104,10 @@ test-suite spec
                      , hspec >= 2.2.0
                      , hspec-core
                      , hspec-discover
-                     , recursion-schemes
+                     , hspec-smallcheck
                      , regex-compat
                      , schematic
+                     , singletons
                      , text
                      , unordered-containers
                      , validationt >= 0.1.0.1

@@ -1,50 +1,45 @@
 module SchemaSpec (spec, main) where
 
-import Data.Functor.Foldable
+import Data.Aeson
 import Data.Proxy
-import Data.Schematic.Schema
-import Data.Schematic.Validation
+import Data.Schematic
+import Data.Singletons
+import Data.Vinyl
 import Test.Hspec
+import Test.Hspec.SmallCheck
 
 
-type TextSchema = SText '[LengthEqNat 2]
+type SchemaExample
+  = SchemaObject
+    '[ '("foo", SchemaArray '[AEq 3] (SchemaNumber '[NGt 10]))
+     , '("bar", SchemaText '[Regex "\\w+"])]
 
-type NumberSchema = SNumber '[ Gt 3]
+schemaExample :: (SingKind Schema, SingI SchemaExample) => DemoteRep Schema
+schemaExample = fromSing (sing :: Sing SchemaExample)
 
-type ArraySchema = SArray '[ LengthEqNat 3 ] NumberSchema
+exampleTest :: JsonRepr (SchemaText '[TEq 3])
+exampleTest = ReprText "lilo"
 
-type ObjectSchema
-  = SObject "CarrierObj"
-    '[ Field "carrier" 'JText '[LengthEqNat 2]
-     , Field "number_gt_3" 'JNumber '[Gt 3] ]
+exampleNumber :: JsonRepr (SchemaNumber '[NEq 3])
+exampleNumber = ReprNumber 3
+
+exampleArray :: JsonRepr (SchemaArray '[AEq 1] (SchemaNumber '[NEq 3]))
+exampleArray = ReprArray [exampleNumber]
+
+exampleObject
+  :: JsonRepr (SchemaObject '[ '("foo", SchemaArray '[AEq 1] (SchemaNumber '[NEq 3]))] )
+exampleObject = ReprObject $ FieldRepr exampleArray :& RNil
+
+example :: JsonRepr SchemaExample
+example = ReprObject $
+  FieldRepr (ReprArray [ReprNumber 3])
+    :& FieldRepr (ReprText "test")
+    :& RNil
 
 spec :: Spec
 spec = do
-  let
-    textSchema   = Fix $ SchemaText [LengthEq 2]
-    numberSchema = Fix $ SchemaNumber [Gt 3]
-    arraySchema  = Fix $ SchemaArray [LengthArrEq 3]
-      $ Fix $ SchemaNumber [Gt 3]
-    objectSchema = Fix $ SchemaObject
-      [ ("carrier", textSchema)
-      , ("number_gt_3", numberSchema)]
-
-  describe "Schema translation: " $ do
-    it "translate string schema" $ do
-      build (Proxy @TextSchema) `shouldBe` textSchema
-    it "translates number schema" $ do
-      build (Proxy @NumberSchema) `shouldBe` numberSchema
-    it "translates array schema" $ do
-      build (Proxy @ArraySchema) `shouldBe` arraySchema
-    it "translates object schema" $ do
-      build (Proxy @ObjectSchema) `shouldBe` objectSchema
-    -- it "translates Generate symbols" $ do
-    --   build (Proxy @GeneratorSchema) `shouldBe` objectSchema
-
-  describe "Types listing: " $ do
-    it "lists types"
-      $ typesOf (build (Proxy @ObjectSchema))
-        `shouldBe` [("Carrier", textSchema), ("Object", objectSchema)]
+  it "decode/encode JsonRepr properly" $ do
+    property $ \(a :: JsonRepr SchemaExample) -> decode (encode a) == Just a
 
 main :: IO ()
 main = hspec spec

@@ -5,16 +5,14 @@ import Control.Applicative
 import Control.Monad
 import Data.Aeson.Types as J
 import Data.Foldable as F
-import Data.Functor.Foldable
 import Data.HashMap.Strict as H
 import Data.Maybe
 import Data.Proxy
-import Data.Schematic.Validation
+import Data.Schematic.Schema
 import Data.Singletons
 import Data.Singletons.Decide
 import Data.Text as T
 import Data.Traversable
-
 
 (<&&>) :: Applicative f => f Bool -> f Bool -> f Bool
 (<&&>) = liftA2 (&&)
