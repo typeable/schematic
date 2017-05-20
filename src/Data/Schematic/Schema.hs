@@ -16,6 +16,7 @@ import Data.Functor.Classes
 import Data.HashMap.Strict as H
 import Data.Kind
 import Data.Maybe
+import Data.Schematic.Utils
 import Data.Scientific
 import Data.Singletons.Decide
 import Data.Singletons.Prelude.List
@@ -40,13 +41,19 @@ data TextConstraint
   = TEq Nat
   | TLe Nat
   | TGt Nat
-  | Regex Symbol
+  | TRegex Symbol
   deriving (Generic)
 
 data instance Sing (tc :: TextConstraint) where
-  STextLengthEq :: Sing n -> Sing (TEq n)
-  STextLengthLe :: Sing n -> Sing (TLe n)
-  STextLengthGt :: Sing n -> Sing (TGt n)
+  STEq :: Sing n -> Sing (TEq n)
+  STLe :: Sing n -> Sing (TLe n)
+  STGt :: Sing n -> Sing (TGt n)
+  STRegex :: Sing s -> Sing (TRegex s)
+
+instance Known (Sing n) => Known (Sing (TEq n)) where known = STEq known
+instance Known (Sing n) => Known (Sing (TGt n)) where known = STGt known
+instance Known (Sing n) => Known (Sing (TLe n)) where known = STLe known
+instance Known (Sing s) => Known (Sing (TRegex s)) where known = STRegex known
 
 instance Eq (Sing (TEq n)) where a == b = True
 instance Eq (Sing (TLe n)) where a == b = True
@@ -59,9 +66,13 @@ data NumberConstraint
   deriving (Generic)
 
 data instance Sing (nc :: NumberConstraint) where
-  SNumberEq :: Sing n -> Sing (NEq n)
-  SNumberGt :: Sing n -> Sing (NGt n)
-  SNumberLe :: Sing n -> Sing (NLe n)
+  SNEq :: Sing n -> Sing (NEq n)
+  SNGt :: Sing n -> Sing (NGt n)
+  SNLe :: Sing n -> Sing (NLe n)
+
+instance Known (Sing n) => Known (Sing (NEq n)) where known = SNEq known
+instance Known (Sing n) => Known (Sing (NGt n)) where known = SNGt known
+instance Known (Sing n) => Known (Sing (NLe n)) where known = SNLe known
 
 instance Eq (Sing (NEq n)) where a == b = True
 instance Eq (Sing (NLe n)) where a == b = True
@@ -72,7 +83,9 @@ data ArrayConstraint
   deriving (Generic)
 
 data instance Sing (ac :: ArrayConstraint) where
-  SArrayEq :: Sing n -> Sing (AEq n)
+  SAEq :: Sing n -> Sing (AEq n)
+
+instance Known (Sing n) => Known (Sing (AEq n)) where known = SAEq known
 
 instance Eq (Sing (AEq n)) where a == b = True
 
@@ -90,6 +103,17 @@ data instance Sing (schema :: Schema) where
   SSchemaArray :: Sing acs -> Sing schema -> Sing (SchemaArray acs schema)
   SSchemaObject :: Sing fields -> Sing (SchemaObject fields)
   SSchemaNull :: Sing SchemaNull
+
+instance Known (Sing sl) => Known (Sing (SchemaText sl)) where
+  known = SSchemaText known
+instance Known (Sing sl) => Known (Sing (SchemaNumber sl)) where
+  known = SSchemaNumber known
+instance Known (Sing SchemaNull) where
+  known = SSchemaNull
+instance (Known (Sing ac), Known (Sing s)) => Known (Sing (SchemaArray ac s)) where
+  known = SSchemaArray known known
+instance Known (Sing stl) => Known (Sing (SchemaObject stl)) where
+  known = SSchemaObject known
 
 instance Eq (Sing (SchemaText cs)) where a == b = True
 instance Eq (Sing (SchemaNumber cs)) where a == b = True
@@ -131,14 +155,16 @@ instance Eq (JsonRepr SchemaNull) where
 instance Eq (JsonRepr s) => Eq (JsonRepr (SchemaArray as s)) where
   ReprArray a == ReprArray b = a == b
 
-instance (SingI schema) => J.FromJSON (JsonRepr schema) where
-  parseJSON value = case sing :: Sing schema of
+instance Known (Sing schema) => J.FromJSON (JsonRepr schema) where
+  parseJSON value = case known :: Sing schema of
     SSchemaText _    -> withText "String" (pure . ReprText) value
     SSchemaNumber _  -> withScientific "Number" (pure . ReprNumber) value
     SSchemaNull      -> pure ReprNull
-    SSchemaArray c s -> withArray "Array" f value
-      where
-        f = fmap ReprArray . (withSingI s $ traverse parseJSON)
+    SSchemaArray c s -> do
+      let
+        f :: Sing cs -> Sing s -> V.Vector J.Value -> Parser (JsonRepr (SchemaArray cs s))
+        f _ _ = fmap ReprArray . traverse parseJSON
+      withArray "Array" (f c s) value
     SSchemaObject fs -> ReprObject <$> withObject "Object" (demoteFields fs) value
 
 demoteFields

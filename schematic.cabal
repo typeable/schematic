@@ -19,6 +19,7 @@ library
   exposed-modules:     Data.Aeson.Validation
                      , Data.Schematic
                      , Data.Schematic.Schema
+                     , Data.Schematic.Utils
   -- ghc-options:
   -- other-modules:
   default-extensions:  ConstraintKinds

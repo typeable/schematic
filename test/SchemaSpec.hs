@@ -12,9 +12,14 @@ import Test.Hspec.SmallCheck
 type SchemaExample
   = SchemaObject
     '[ '("foo", SchemaArray '[AEq 3] (SchemaNumber '[NGt 10]))
-     , '("bar", SchemaText '[Regex "\\w+"])]
+     , '("bar", SchemaText '[TRegex "\\w+"])]
 
-schemaExample :: (SingKind Schema, SingI SchemaExample) => DemoteRep Schema
+schemaExample
+  :: ( DemoteRep Schema ~ Sing SchemaExample
+     , DemoteRep Schema ~ s
+     , SingKind Schema
+     , SingI SchemaExample
+     ) => s
 schemaExample = fromSing (sing :: Sing SchemaExample)
 
 exampleTest :: JsonRepr (SchemaText '[TEq 3])
@@ -39,7 +44,8 @@ example = ReprObject $
 spec :: Spec
 spec = do
   it "decode/encode JsonRepr properly" $ do
-    property $ \(a :: JsonRepr SchemaExample) -> decode (encode a) == Just a
+    withSingI schemaExample $ property
+      $ \(a :: JsonRepr SchemaExample) -> decode (encode a) == Just a
 
 main :: IO ()
 main = hspec spec
