@@ -16,6 +16,7 @@ import Data.Functor.Classes
 import Data.HashMap.Strict as H
 import Data.Kind
 import Data.Maybe
+import Data.Schematic.Instances
 import Data.Schematic.Utils
 import Data.Scientific
 import Data.Singletons.Decide
@@ -26,7 +27,9 @@ import Data.Text as T
 import Data.Vector as V
 import Data.Vinyl hiding (Dict)
 import Data.Vinyl.Functor
+import Data.Vinyl.TypeLevel hiding (Nat)
 import GHC.Generics (Generic)
+import Prelude as P
 import Test.SmallCheck.Series
 import Text.Show.Deriving (deriveShow1)
 
@@ -98,10 +101,10 @@ data Schema
   deriving (Generic)
 
 data instance Sing (schema :: Schema) where
-  SSchemaText :: Sing tcs -> Sing (SchemaText tcs)
-  SSchemaNumber :: Sing ncs -> Sing (SchemaNumber ncs)
-  SSchemaArray :: Sing acs -> Sing schema -> Sing (SchemaArray acs schema)
-  SSchemaObject :: Sing fields -> Sing (SchemaObject fields)
+  SSchemaText :: Known (Sing tcs) => Sing tcs -> Sing (SchemaText tcs)
+  SSchemaNumber :: Known (Sing ncs) => Sing ncs -> Sing (SchemaNumber ncs)
+  SSchemaArray :: (Known (Sing acs), Known (Sing schema)) => Sing acs -> Sing schema -> Sing (SchemaArray acs schema)
+  SSchemaObject :: Known (Sing fields) => Sing fields -> Sing (SchemaObject fields)
   SSchemaNull :: Sing SchemaNull
 
 instance Known (Sing sl) => Known (Sing (SchemaText sl)) where
@@ -124,6 +127,12 @@ instance Eq (Sing (SchemaObject cs)) where a == b = True
 data FieldRepr :: (Symbol, Schema) -> Type where
   FieldRepr :: KnownSymbol name => JsonRepr schema -> FieldRepr '(name, schema)
 
+type family MapSnd (cs :: [(Symbol, Schema)]) :: [Schema] where
+  MapSnd '[] = '[]
+  MapSnd ( '(fn, schema) ': as) = schema ': MapSnd as
+
+deriving instance Show (JsonRepr schema) => Show (FieldRepr '(name, schema))
+
 instance Eq (JsonRepr schema) => Eq (FieldRepr '(name, schema)) where
   FieldRepr a == FieldRepr b = a == b
 
@@ -139,6 +148,39 @@ data JsonRepr :: Schema -> Type where
   ReprNull :: JsonRepr SchemaNull
   ReprArray :: V.Vector (JsonRepr s) -> JsonRepr (SchemaArray cs s)
   ReprObject :: Rec FieldRepr fs -> JsonRepr (SchemaObject fs)
+
+instance Show (JsonRepr (SchemaText cs)) where
+  show (ReprText t) = "ReprText " P.++ show t
+
+instance Show (JsonRepr (SchemaNumber cs)) where
+  show (ReprNumber n) = "ReprNumber " P.++ show n
+
+instance Show (JsonRepr SchemaNull) where show _ = "ReprNull"
+
+instance Show (JsonRepr s) => Show (JsonRepr (SchemaArray acs s)) where
+  show (ReprArray v) = "ReprArray " P.++ show v
+
+instance RecAll FieldRepr fs Show => Show (JsonRepr (SchemaObject fs)) where
+  show (ReprObject fs) = "ReprObject " P.++ show fs
+
+instance (Monad m, Serial m Text)
+  => Serial m (JsonRepr (SchemaText cs)) where
+  series = cons1 ReprText
+
+instance (Monad m, Serial m Scientific)
+  => Serial m (JsonRepr (SchemaNumber cs)) where
+  series = cons1 ReprNumber
+
+instance Monad m => Serial m (JsonRepr SchemaNull) where
+  series = cons0 ReprNull
+
+instance (Serial m (V.Vector (JsonRepr s)))
+  => Serial m (JsonRepr (SchemaArray cs s)) where
+  series = cons1 ReprArray
+
+instance (Monad m, Serial m (Rec FieldRepr fs))
+  => Serial m (JsonRepr (SchemaObject fs)) where
+  series = cons1 ReprObject
 
 instance Eq (Rec FieldRepr fs) => Eq (JsonRepr (SchemaObject fs)) where
   ReprObject a == ReprObject b = a == b
@@ -159,27 +201,34 @@ instance Known (Sing schema) => J.FromJSON (JsonRepr schema) where
   parseJSON value = case known :: Sing schema of
     SSchemaText _    -> withText "String" (pure . ReprText) value
     SSchemaNumber _  -> withScientific "Number" (pure . ReprNumber) value
-    SSchemaNull      -> pure ReprNull
-    SSchemaArray c s -> do
+    SSchemaNull      -> case value of
+      J.Null -> pure ReprNull
+      _      -> typeMismatch "Null" value
+    SSchemaArray c s -> withArray "Array" (fmap ReprArray . traverse parseJSON) value
+    SSchemaObject fs -> do
       let
-        f :: Sing cs -> Sing s -> V.Vector J.Value -> Parser (JsonRepr (SchemaArray cs s))
-        f _ _ = fmap ReprArray . traverse parseJSON
-      withArray "Array" (f c s) value
-    SSchemaObject fs -> ReprObject <$> withObject "Object" (demoteFields fs) value
-
-demoteFields
-  :: SList s
-  -> H.HashMap Text J.Value
-  -> Parser (Rec FieldRepr s)
-demoteFields SNil h
-  | H.null h  = pure RNil
-  | otherwise = mzero
-demoteFields (SCons (STuple2 (n :: Sing fn) s) tl) h = withKnownSymbol n $ do
-  let fieldName = T.pack $ symbolVal (Proxy @fn)
-  fieldRepr <- case H.lookup fieldName h of
-    Just v  -> FieldRepr <$> (withSingI s $ parseJSON v)
-    Nothing -> mzero
-  (fieldRepr :&) <$> demoteFields tl h
+        demoteFields :: SList s -> H.HashMap Text J.Value -> Parser (Rec FieldRepr s)
+        demoteFields SNil h = pure RNil
+        demoteFields (SCons (STuple2 (n :: Sing fn) s) tl) h = withKnownSymbol n $ do
+          let fieldName = T.pack $ symbolVal (Proxy @fn)
+          fieldRepr <- case s of
+            SSchemaText _ -> case H.lookup fieldName h of
+                Just v  -> FieldRepr <$> parseJSON v
+                Nothing -> fail "schematext"
+            SSchemaNumber _ -> case H.lookup fieldName h of
+                Just v  -> FieldRepr <$> parseJSON v
+                Nothing -> fail "schemanumber"
+            SSchemaNull -> case H.lookup fieldName h of
+                Just v  -> FieldRepr <$> parseJSON v
+                Nothing -> fail "schemanull"
+            SSchemaArray _ _ -> case H.lookup fieldName h of
+                Just v  -> FieldRepr <$> parseJSON v
+                Nothing -> fail "schemaarray"
+            SSchemaObject _ -> case H.lookup fieldName h of
+                Just v  -> FieldRepr <$> parseJSON v
+                Nothing -> fail "schemaobject"
+          (fieldRepr :&) <$> demoteFields tl h
+      ReprObject <$> withObject "Object" (demoteFields fs) value
 
 instance J.ToJSON (JsonRepr a) where
   toJSON ReprNull       = J.Null

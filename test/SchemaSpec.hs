@@ -1,5 +1,6 @@
 module SchemaSpec (spec, main) where
 
+import Control.Monad
 import Data.Aeson
 import Data.Proxy
 import Data.Schematic
@@ -7,45 +8,42 @@ import Data.Singletons
 import Data.Vinyl
 import Test.Hspec
 import Test.Hspec.SmallCheck
+import Test.SmallCheck
+import Test.SmallCheck.Series.Instances
 
 
 type SchemaExample
   = SchemaObject
-    '[ '("foo", SchemaArray '[AEq 3] (SchemaNumber '[NGt 10]))
+    '[ '("foo", SchemaArray '[AEq 1] (SchemaNumber '[NGt 10]))
      , '("bar", SchemaText '[TRegex "\\w+"])]
 
-schemaExample
-  :: ( DemoteRep Schema ~ Sing SchemaExample
-     , DemoteRep Schema ~ s
-     , SingKind Schema
-     , SingI SchemaExample
-     ) => s
-schemaExample = fromSing (sing :: Sing SchemaExample)
-
 exampleTest :: JsonRepr (SchemaText '[TEq 3])
-exampleTest = ReprText "lilo"
+exampleTest = ReprText "lil"
 
-exampleNumber :: JsonRepr (SchemaNumber '[NEq 3])
-exampleNumber = ReprNumber 3
+exampleNumber :: JsonRepr (SchemaNumber '[NGt 10])
+exampleNumber = ReprNumber 12
 
-exampleArray :: JsonRepr (SchemaArray '[AEq 1] (SchemaNumber '[NEq 3]))
+exampleArray :: JsonRepr (SchemaArray '[AEq 1] (SchemaNumber '[NGt 10]))
 exampleArray = ReprArray [exampleNumber]
 
-exampleObject
-  :: JsonRepr (SchemaObject '[ '("foo", SchemaArray '[AEq 1] (SchemaNumber '[NEq 3]))] )
-exampleObject = ReprObject $ FieldRepr exampleArray :& RNil
+exampleObject :: JsonRepr SchemaExample
+exampleObject = ReprObject $ FieldRepr exampleArray :& FieldRepr (ReprText "barval") :& RNil
 
-example :: JsonRepr SchemaExample
-example = ReprObject $
-  FieldRepr (ReprArray [ReprNumber 3])
-    :& FieldRepr (ReprText "test")
+jsonExample :: JsonRepr SchemaExample
+jsonExample = ReprObject $
+  FieldRepr (ReprArray [ReprNumber 12])
+    :& FieldRepr (ReprText "tes")
     :& RNil
+
+-- schemaExample :: Sing SchemaExample
+-- schemaExample = known
 
 spec :: Spec
 spec = do
-  it "decode/encode JsonRepr properly" $ do
-    withSingI schemaExample $ property
-      $ \(a :: JsonRepr SchemaExample) -> decode (encode a) == Just a
+  -- it "show/read JsonRepr properly" $
+  --   read (show example) == example
+  it "decode/encode JsonRepr properly" $
+    decode (encode jsonExample) == Just jsonExample
 
 main :: IO ()
 main = hspec spec
