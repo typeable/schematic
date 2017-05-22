@@ -15,10 +15,10 @@ import Test.SmallCheck.Series.Instances
 type SchemaExample
   = SchemaObject
     '[ '("foo", SchemaArray '[AEq 1] (SchemaNumber '[NGt 10]))
-     , '("bar", SchemaText '[TRegex "\\w+"])]
+     , '("bar", SchemaOptional (SchemaText '[TRegex "\\w+"]))]
 
-exampleTest :: JsonRepr (SchemaText '[TEq 3])
-exampleTest = ReprText "lil"
+exampleTest :: JsonRepr (SchemaOptional (SchemaText '[TEq 3]))
+exampleTest = ReprOptional (Just (ReprText "lil"))
 
 exampleNumber :: JsonRepr (SchemaNumber '[NGt 10])
 exampleNumber = ReprNumber 12
@@ -27,12 +27,14 @@ exampleArray :: JsonRepr (SchemaArray '[AEq 1] (SchemaNumber '[NGt 10]))
 exampleArray = ReprArray [exampleNumber]
 
 exampleObject :: JsonRepr SchemaExample
-exampleObject = ReprObject $ FieldRepr exampleArray :& FieldRepr (ReprText "barval") :& RNil
+exampleObject = ReprObject $ FieldRepr exampleArray
+  :& FieldRepr (ReprOptional (Just (ReprText "barval")))
+  :& RNil
 
 jsonExample :: JsonRepr SchemaExample
 jsonExample = ReprObject $
   FieldRepr (ReprArray [ReprNumber 12])
-    :& FieldRepr (ReprText "tes")
+    :& FieldRepr (ReprOptional (Just (ReprText "tes")))
     :& RNil
 
 -- schemaExample :: Sing SchemaExample
