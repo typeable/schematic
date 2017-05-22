@@ -22,7 +22,7 @@ library
                      , Data.Schematic.Schema
                      , Data.Schematic.Validation
                      , Data.Schematic.Utils
-  -- ghc-options:
+  ghc-options:       -Wall
   -- other-modules:
   default-extensions:  ConstraintKinds
                      , DataKinds
