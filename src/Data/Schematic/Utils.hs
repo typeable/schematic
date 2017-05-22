@@ -2,7 +2,6 @@
 
 module Data.Schematic.Utils where
 
-import Data.Kind
 import Data.Proxy
 import Data.Singletons
 import Data.Singletons.Prelude
@@ -12,6 +11,9 @@ import Data.Vinyl hiding (Dict)
 
 class Known a where
   known :: a
+
+instance Known (Proxy a) where
+  known = Proxy
 
 instance KnownNat n => Known (Sing n) where
   known = SNat
