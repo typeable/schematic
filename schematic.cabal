@@ -16,8 +16,7 @@ extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Data.Aeson.Validation
-                     , Data.Schematic
+  exposed-modules:     Data.Schematic
                      , Data.Schematic.Instances
                      , Data.Schematic.Schema
                      , Data.Schematic.Utils
