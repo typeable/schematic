@@ -18,7 +18,9 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Data.Schematic
                      , Data.Schematic.Instances
+                     , Data.Schematic.Path
                      , Data.Schematic.Schema
+                     , Data.Schematic.Validation
                      , Data.Schematic.Utils
   -- ghc-options:
   -- other-modules:

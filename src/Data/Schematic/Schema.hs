@@ -8,6 +8,7 @@ module Data.Schematic.Schema where
 import Control.Applicative
 import Control.Category ((<<<), (>>>))
 import Control.Monad
+import Control.Monad.Validation
 import Data.Aeson as J
 import Data.Aeson.Types as J
 import Data.Eq.Deriving (deriveEq1)
