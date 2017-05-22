@@ -2,6 +2,11 @@ sudo: false
 
 language: c
 
+addons:
+  apt:
+    packages:
+      - libgmp-dev
+
 env:
   - STACK_YAML=stack.yaml
 
