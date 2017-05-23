@@ -1,9 +1,11 @@
 module Data.Schematic.Path where
 
-import Data.Singletons
-import Data.Singletons.TypeLits
+import Data.Foldable as F
+import Data.Monoid
 import Data.Schematic.Utils
+import Data.Singletons
 import Data.Singletons.Prelude
+import Data.Singletons.TypeLits
 import Data.Text as T
 
 
@@ -21,10 +23,28 @@ instance (KnownNat n, Known (Sing n))
   => Known (Sing ('Ix n)) where
   known = SIx known
 
-pathToText :: Sing (ps :: [PathSegment]) -> Text
-pathToText = T.pack . go ""
+data DemotedPathSegment = DKey Text | DIx Integer
+  deriving (Show)
+
+-- | Textual representation of json path.
+newtype JSONPath = JSONPath Text
+  deriving (Show)
+
+demotePath :: Sing (ps :: [PathSegment]) -> [DemotedPathSegment]
+demotePath = go []
   where
-    go :: String -> Sing (ps :: [PathSegment]) -> String
+    go :: [DemotedPathSegment] -> Sing (ps :: [PathSegment]) -> [DemotedPathSegment]
     go acc SNil = acc
-    go acc (SCons (SKey k) tl) = go (acc ++ "." ++ symbolVal k) tl
-    go acc (SCons (SIx n) tl) = go (acc ++ "[" ++ show (natVal n) ++ "]") tl
+    go acc (SCons p ps) = go (acc ++ [demote p]) ps
+    demote :: Sing (ps :: PathSegment) -> DemotedPathSegment
+    demote (SKey s) = DKey $ T.pack $ symbolVal s
+    demote (SIx n) = DIx $ natVal n
+
+demotedPathToText :: [DemotedPathSegment] -> JSONPath
+demotedPathToText = JSONPath . F.foldl' renderPathSegment ""
+  where
+    renderPathSegment acc (DKey t) = acc <> "." <> t
+    renderPathSegment acc (DIx n)  = acc <> "[" <> T.pack (show n) <> "]"
+
+pathToText :: Sing (ps :: [PathSegment]) -> JSONPath
+pathToText = demotedPathToText . demotePath

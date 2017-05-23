@@ -15,7 +15,7 @@ import Data.Maybe
 import Data.Schematic.Instances ()
 import Data.Schematic.Utils
 import Data.Scientific
-import Data.Singletons.Prelude.List
+import Data.Singletons.Prelude.List hiding (All)
 import Data.Singletons.TH
 import Data.Singletons.TypeLits
 import Data.Text as T
@@ -26,6 +26,10 @@ import GHC.Generics (Generic)
 import Prelude as P
 import Test.SmallCheck.Series
 
+
+type family All (c :: k -> Constraint) (s :: [k]) :: Constraint where
+  All c '[]       = ()
+  All c (a ': as) = (c a, All c as)
 
 type family CRepr (s :: Schema) :: Type where
   CRepr ('SchemaText cs)  = TextConstraint
@@ -38,22 +42,27 @@ data TextConstraint
   | TLe Nat
   | TGt Nat
   | TRegex Symbol
+  | TEnum [Symbol]
   deriving (Generic)
 
 data instance Sing (tc :: TextConstraint) where
-  STEq :: Sing n -> Sing ('TEq n)
-  STLe :: Sing n -> Sing ('TLe n)
-  STGt :: Sing n -> Sing ('TGt n)
-  STRegex :: Sing s -> Sing ('TRegex s)
+  STEq :: (KnownNat n) => Sing n -> Sing ('TEq n)
+  STLe :: (KnownNat n) => Sing n -> Sing ('TLe n)
+  STGt :: (KnownNat n) => Sing n -> Sing ('TGt n)
+  STRegex :: (KnownSymbol s, Known (Sing s)) => Sing s -> Sing ('TRegex s)
+  STEnum :: (All KnownSymbol ss, Known (Sing ss)) => Sing ss -> Sing ('TEnum ss)
 
-instance Known (Sing n) => Known (Sing ('TEq n)) where known = STEq known
-instance Known (Sing n) => Known (Sing ('TGt n)) where known = STGt known
-instance Known (Sing n) => Known (Sing ('TLe n)) where known = STLe known
-instance Known (Sing s) => Known (Sing ('TRegex s)) where known = STRegex known
+instance (KnownNat n) => Known (Sing ('TEq n)) where known = STEq known
+instance (KnownNat n) => Known (Sing ('TGt n)) where known = STGt known
+instance (KnownNat n) => Known (Sing ('TLe n)) where known = STLe known
+instance (KnownSymbol s, Known (Sing s)) => Known (Sing ('TRegex s)) where known = STRegex known
+instance (All KnownSymbol ss, Known (Sing ss)) => Known (Sing ('TEnum ss)) where known = STEnum known
 
 instance Eq (Sing ('TEq n)) where _ == _ = True
 instance Eq (Sing ('TLe n)) where _ == _ = True
 instance Eq (Sing ('TGt n)) where _ == _ = True
+instance Eq (Sing ('TRegex t)) where _ == _ = True
+instance Eq (Sing ('TEnum ss)) where _ == _ = True
 
 data NumberConstraint
   = NLe Nat
@@ -62,13 +71,13 @@ data NumberConstraint
   deriving (Generic)
 
 data instance Sing (nc :: NumberConstraint) where
-  SNEq :: Sing n -> Sing ('NEq n)
-  SNGt :: Sing n -> Sing ('NGt n)
-  SNLe :: Sing n -> Sing ('NLe n)
+  SNEq :: KnownNat n => Sing n -> Sing ('NEq n)
+  SNGt :: KnownNat n => Sing n -> Sing ('NGt n)
+  SNLe :: KnownNat n => Sing n -> Sing ('NLe n)
 
-instance Known (Sing n) => Known (Sing ('NEq n)) where known = SNEq known
-instance Known (Sing n) => Known (Sing ('NGt n)) where known = SNGt known
-instance Known (Sing n) => Known (Sing ('NLe n)) where known = SNLe known
+instance KnownNat n => Known (Sing ('NEq n)) where known = SNEq known
+instance KnownNat n => Known (Sing ('NGt n)) where known = SNGt known
+instance KnownNat n => Known (Sing ('NLe n)) where known = SNLe known
 
 instance Eq (Sing ('NEq n)) where _ == _ = True
 instance Eq (Sing ('NLe n)) where _ == _ = True
@@ -79,9 +88,9 @@ data ArrayConstraint
   deriving (Generic)
 
 data instance Sing (ac :: ArrayConstraint) where
-  SAEq :: Sing n -> Sing ('AEq n)
+  SAEq :: KnownNat n => Sing n -> Sing ('AEq n)
 
-instance Known (Sing n) => Known (Sing ('AEq n)) where known = SAEq known
+instance KnownNat n => Known (Sing ('AEq n)) where known = SAEq known
 
 instance Eq (Sing ('AEq n)) where _ == _ = True
 
@@ -123,11 +132,24 @@ instance Eq (Sing ('SchemaObject cs)) where _ == _ = True
 instance Eq (Sing ('SchemaOptional s)) where _ == _ = True
 
 data FieldRepr :: (Symbol, Schema) -> Type where
-  FieldRepr :: KnownSymbol name => JsonRepr schema -> FieldRepr '(name, schema)
+  FieldRepr
+    :: (Known (Sing schema), KnownSymbol name)
+    => JsonRepr schema
+    -> FieldRepr '(name, schema)
 
-type family MapSnd (cs :: [(Symbol, Schema)]) :: [Schema] where
-  MapSnd '[] = '[]
-  MapSnd ( '(fn, schema) ': as) = schema ': MapSnd as
+knownFieldName
+  :: forall proxy (fieldName :: Symbol) schema
+  .  KnownSymbol fieldName
+  => proxy '(fieldName, schema)
+  -> Text
+knownFieldName _ = T.pack $ symbolVal (Proxy @fieldName)
+
+knownFieldSchema
+  :: forall proxy fieldName schema
+  .  Known (Sing schema)
+  => proxy '(fieldName, schema)
+  -> Sing schema
+knownFieldSchema _ = known
 
 deriving instance Show (JsonRepr schema) => Show (FieldRepr '(name, schema))
 
@@ -136,6 +158,7 @@ instance Eq (JsonRepr schema) => Eq (FieldRepr '(name, schema)) where
 
 instance
   ( KnownSymbol name
+  , Known (Sing schema)
   , Serial m (JsonRepr schema) )
   => Serial m (FieldRepr '(name, schema)) where
   series = FieldRepr <$> series
@@ -269,9 +292,9 @@ instance J.ToJSON (JsonRepr a) where
         RNil                   -> []
         fr@(FieldRepr _) :& tl -> (extract fr) : fold tl
 
-class FalseConstraint
+class FalseConstraint a
 
-type family TopLevel (spec :: Schema) :: Constraint where
-  TopLevel ('SchemaArray a e) = ()
-  TopLevel ('SchemaObject o)  = ()
-  TopLevel spec              = FalseConstraint
+type family TopLevel (schema :: Schema) :: Constraint where
+  TopLevel ('SchemaArray acs s) = ()
+  TopLevel ('SchemaObject o)    = ()
+  TopLevel spec                 = FalseConstraint spec
