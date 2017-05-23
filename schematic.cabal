@@ -57,7 +57,6 @@ library
                      , UndecidableInstances
   build-depends:       base >=4.9 && <4.10
                      , aeson >= 1
-                     , deriving-compat
                      , regex-compat
                      , scientific
                      , singletons
