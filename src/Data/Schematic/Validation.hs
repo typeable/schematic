@@ -28,6 +28,18 @@ data ParseResult a
   | ValidationError ErrorMap
   deriving (Show, Eq, Functor)
 
+isValid :: ParseResult a -> Bool
+isValid (Valid _) = True
+isValid _ = False
+
+isDecodingError :: ParseResult a -> Bool
+isDecodingError (DecodingError _) = True
+isDecodingError _                 = False
+
+isValidationError :: ParseResult a -> Bool
+isValidationError (ValidationError _) = True
+isValidationError _                   = False
+
 validateTextConstraint
   :: JSONPath
   -> Text
