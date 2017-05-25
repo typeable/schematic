@@ -9,6 +9,8 @@ import Data.Schematic.Schema
 import Data.Schematic.Utils
 import Data.Singletons.Prelude hiding (All)
 import Data.Singletons.TypeLits
+import Data.Vinyl
+
 
 class MigrateSchema (a :: Schema) (b :: Schema) where
   migrate :: JsonRepr a -> JsonRepr b
@@ -44,6 +46,7 @@ type family TypedDiffList (s :: Schema) (ds :: [Diff]) :: Constraint where
   TypedDiffList s '[]       = ()
   TypedDiffList s (d ': tl) = (TypedDiff s d, TypedDiffList s tl)
 
+-- here
 type family TypedDiffListSchema (s :: Schema) (ds :: [Diff]) :: Schema where
   TypedDiffListSchema s '[]       = s
   TypedDiffListSchema s (d ': tl) = TypedDiffListSchema (TypedDiffSchema s d) tl
@@ -58,8 +61,8 @@ type family TypedSubSchema (s :: Schema) (p :: [PathSegment]) :: Constraint wher
   TypedSubSchema s '[]       = ()
   TypedSubSchema s (h ': tl) = TypedSubSchema (TraverseStep s h) tl
 
+-- issue here
 type family TypedSubSchemaSchema (s :: Schema) (p :: [PathSegment]) :: Schema where
-  TypedSubSchemaSchema s '[] = s
   TypedSubSchemaSchema s (h ': tl) = TypedSubSchemaSchema (TraverseStep s h) tl
 
 type family TraverseStep (s :: Schema) (ps :: PathSegment) :: Schema where
@@ -112,3 +115,19 @@ type family HeadVersion (vd :: Versioned) :: Schema where
   HeadVersion ('Versioned s '[])        = s
   HeadVersion ('Versioned s (m ': tl))  =
     HeadVersion ('Versioned (Snd (TypedMigrationSchema s m)) tl)
+
+type SchemaExample
+  = 'SchemaObject
+    '[ '("foo", 'SchemaArray '[ 'AEq 1] ( 'SchemaNumber '[ 'NGt 10 ]))
+     , '("bar", 'SchemaOptional ( 'SchemaText '[ 'TRegex "\\w+", 'TEnum '["foo", "bar"]]))]
+
+type VS =
+  'Versioned SchemaExample
+    '[ 'Migration "test_revision"
+       '[ 'Diff '[ 'Key "foo" ] ('Update ('SchemaText '[])) ] ]
+
+-- jsonExample :: JsonRepr (HeadVersion VS)
+-- jsonExample = ReprObject $
+--   FieldRepr (ReprText "foo")
+--     :& FieldRepr (ReprOptional (Just (ReprText "bar")))
+--     :& RNil
