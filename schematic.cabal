@@ -63,6 +63,7 @@ library
                      , singletons
                      , smallcheck
                      , smallcheck-series
+                     , tagged
                      , text
                      , unordered-containers
                      , validationt >= 0.1.0.1
@@ -115,6 +116,7 @@ test-suite spec
                      , smallcheck
                      , smallcheck-series
                      , singletons
+                     , tagged
                      , text
                      , unordered-containers
                      , validationt >= 0.1.0.1
