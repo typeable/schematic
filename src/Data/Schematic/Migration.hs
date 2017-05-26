@@ -3,7 +3,6 @@
 
 module Data.Schematic.Migration where
 
-import Data.Kind
 import Data.Schematic.Path
 import Data.Schematic.Schema
 import Data.Schematic.Utils
@@ -21,47 +20,51 @@ data instance Sing (p :: Path) where
 
 -- Result type blueprint
 data Builder
-  = BKey Schema Symbol Build  -- field schema
+  = BKey Schema Symbol Builder  -- field schema
   | BTraverse Schema Builder  -- array schema
   | BScalar Schema
 
 -- Working with keys
 
 type family SchemaByKey (fs :: [(Symbol, Schema)]) (s :: Symbol) :: Schema where
-  SchemaByKey ( '(a, s) ': tl) fn = SchemaByKey tl fn
   SchemaByKey ( '(fn,s) ': tl) fn = s
+  SchemaByKey ( '(a, s) ': tl) fn = SchemaByKey tl fn
 
-type family DeleteKey (acc :: [(Symbol, Schema)]) (fn :: Symbol) (fs :: [(Symbol, Schema)]) :: Schema where
+type family DeleteKey (acc :: [(Symbol, Schema)]) (fn :: Symbol) (fs :: [(Symbol, Schema)]) :: [(Symbol, Schema)] where
   DeleteKey acc fn ('(fn, a) ': tl) = acc :++ tl
   DeleteKey acc fn (fna ': tl) = acc :++ (fna ': tl)
 
 type family UpdateKey (acc :: [(Symbol, Schema)]) (fn :: Symbol) (fs :: [(Symbol, Schema)]) (s :: Schema) :: [(Symbol, Schema)] where
   UpdateKey acc fn ( '(fn, n) ': tl ) s = '(fn, s) ': tl
-  UpdateKey acc fn ( '(a, n) ': tl) s = acc :++ '(a, n) ': UpdateKey fn tl
+  UpdateKey acc fn ( '(a, n) ': tl) s = UpdateKey (acc :++ '[ '(a,n) ]) fn tl s
 
-type family Build (z :: Builder) :: Schema where
-  Build ('BKey (SchemaObject fs) fn z) = UpdateKey '[] fn fs (Build z)
-  Build ('BTraverse (SchemaArray acs s) z) = SchemaArray acs (Build z)
+type family Build (b :: Builder) :: Schema where
+  Build ('BKey ('SchemaObject fs) fn z) = 'SchemaObject (UpdateKey '[] fn fs (Build z))
+  Build ('BTraverse ('SchemaArray acs s) z) = 'SchemaArray acs (Build z)
   Build ('BScalar s) = s
 
 type family MakeBuilder (s :: Schema) (d :: Diff) :: Builder where
-  MakeBuilder s ('Diff '[] a) = BScalar (ApplyAction a s)
+  MakeBuilder s ('Diff '[] a) = 'BScalar (ApplyAction a s)
   MakeBuilder ('SchemaObject fs) ('Diff ('PKey fn ': tl) a) =
-    BKey ('SchemaObject fs) fn (MakeBuilder (SchemaByKey fn fs) ('Diff tl a))
+    'BKey ('SchemaObject fs) fn (MakeBuilder (SchemaByKey fs fn) ('Diff tl a))
   MakeBuilder ('SchemaArray acs s) ('Diff ('PTraverse ': tl) a) =
-    MakeBuilder ('SchemaArray acs s) (MakeBuilder s ('Diff tl a))
+    'BTraverse ('SchemaArray acs s) (MakeBuilder s ('Diff tl a))
 
 type family ApplyAction (a :: Action) (s :: Schema) :: Schema where
   ApplyAction ('AddKey fn s) ('SchemaObject fs) = 'SchemaObject ('(fn,s) ': fs)
-  ApplyAction ('DeleteKey fn) ('SchemaObject fs) = 'SchemaObject (DeleteKey fn fs)
+  ApplyAction ('DeleteKey fn) ('SchemaObject fs) = 'SchemaObject (DeleteKey '[] fn fs)
   ApplyAction ('Update s) t = s
 
-data instance Sing (z :: Builder) where
-  SZipper
-    :: (Known (Sing ts), Known (Sing s))
-    => Sing ts
-    -> Sing s
-    -> Sing (Builder ts s)
+type family ApplyMigration (m :: Migration) (s :: Schema) :: (Revision, Schema) where
+  ApplyMigration ('Migration r '[])       s = '(r, s)
+  ApplyMigration ('Migration r (d ': ds)) s =
+    '(r, Snd (ApplyMigration ('Migration r ds) (Build (MakeBuilder s d))))
+
+type family SchemaByRevision (r :: Revision) (vd :: Versioned) :: Schema where
+  SchemaByRevision r ('Versioned s (('Migration r ds) ': ms)) =
+    Snd (ApplyMigration ('Migration r ds) s)
+  SchemaByRevision r ('Versioned s (m ': ms)) =
+    SchemaByRevision r ('Versioned (Snd (ApplyMigration m s)) ms)
 
 class MigrateSchema (a :: Schema) (b :: Schema) where
   migrate :: JsonRepr a -> JsonRepr b
@@ -75,21 +78,22 @@ data instance Sing (a :: Action) where
     -> Sing s
     -> Sing ('AddKey n s)
   SUpdate :: Known (Sing s) => Sing s -> Sing ('Update s)
-  SDelete :: Sing 'DeleteKey
+  SDeleteKey :: KnownSymbol s => Sing s -> Sing ('DeleteKey s)
 
 instance (Known (Sing n), Known (Sing s)) => Known (Sing ('AddKey n s)) where
   known = SAddKey known known
 instance (Known (Sing s)) => Known (Sing ('Update s)) where known = SUpdate known
-instance Known (Sing 'DeleteKey) where known = SDelete
+instance (KnownSymbol s, Known (Sing s)) => Known (Sing ('DeleteKey s)) where
+  known = SDeleteKey known
 
 -- | User-supplied atomic difference between schemas.
 -- Migrations can consists of many differences.
-data Diff = Diff [PathSegment] Action
+data Diff = Diff [Path] Action
 
 data instance Sing (diff :: Diff) where
   SDiff
     :: (Known (Sing jp), Known (Sing a))
-    => Sing (jp :: [PathSegment])
+    => Sing (jp :: [Path])
     -> Sing (a :: Action)
     -> Sing ('Diff jp a)
 
@@ -97,12 +101,6 @@ data instance Sing (diff :: Diff) where
 type Revision = Symbol
 
 data Migration = Migration Revision [Diff]
-
--- type family TypedMigration (s :: Schema) (m :: Migration) :: Constraint where
---   TypedMigration s ('Migration r ds) = (TypedDiffList s ds)
-
--- type family TypedMigrationSchema (s :: Schema) (m :: Migration) :: (Symbol, Schema) where
---   TypedMigrationSchema s ('Migration r ds) = '(r, TypedDiffListSchema s ds)
 
 data instance Sing (m :: Migration) where
   SMigration
@@ -113,26 +111,14 @@ data instance Sing (m :: Migration) where
 
 data Versioned = Versioned Schema [Migration]
 
--- type family TypedVersioned (s :: Schema) (ms :: [Migration]) :: Constraint where
---   TypedVersioned s '[]       = ()
---   TypedVersioned s (h ': tl) =
---     ( TypedMigration s h
---     , MigrateSchema s (Snd (TypedMigrationSchema s h))
---     , TypedVersioned (Snd (TypedMigrationSchema s h)) tl )
-
 type family TypedVersionedSchema
 
 data instance Sing (v :: Versioned) where
   SVersioned
-    :: (Known (Sing s), Known (Sing ms), TypedMigration s m)
+    :: (Known (Sing s), Known (Sing ms))
     => Sing (s :: Schema)  -- base version
     -> Sing (ms :: [Migration]) -- a bunch of migrations
     -> Sing ('Versioned s ms)
-
-type family HeadVersion (vd :: Versioned) :: Schema where
-  HeadVersion ('Versioned s '[])        = s
-  HeadVersion ('Versioned s (m ': tl))  =
-    HeadVersion ('Versioned (Snd (TypedMigrationSchema s m)) tl)
 
 type SchemaExample
   = 'SchemaObject
@@ -142,10 +128,10 @@ type SchemaExample
 type VS =
   'Versioned SchemaExample
     '[ 'Migration "test_revision"
-       '[ 'Diff '[ 'Key "foo" ] ('Update ('SchemaText '[])) ] ]
+       '[ 'Diff '[ 'PKey "foo" ] ('Update ('SchemaText '[])) ] ]
 
--- jsonExample :: JsonRepr (HeadVersion VS)
--- jsonExample = ReprObject $
---   FieldRepr (ReprText "foo")
---     :& FieldRepr (ReprOptional (Just (ReprText "bar")))
---     :& Nil
+jsonExample :: JsonRepr (SchemaByRevision "test_revision" VS)
+jsonExample = ReprObject $
+  FieldRepr (ReprText "foo")
+    :& FieldRepr (ReprOptional (Just (ReprText "bar")))
+    :& RNil
