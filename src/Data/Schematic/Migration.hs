@@ -38,6 +38,8 @@ type family UpdateKey (acc :: [(Symbol, Schema)]) (fn :: Symbol) (fs :: [(Symbol
   UpdateKey acc fn ( '(fn, n) ': tl ) s = '(fn, s) ': tl
   UpdateKey acc fn ( '(a, n) ': tl) s = UpdateKey (acc :++ '[ '(a,n) ]) fn tl s
 
+-- schema updates
+
 type family Build (b :: Builder) :: Schema where
   Build ('BKey ('SchemaObject fs) fn z) = 'SchemaObject (UpdateKey '[] fn fs (Build z))
   Build ('BTraverse ('SchemaArray acs s) z) = 'SchemaArray acs (Build z)
@@ -60,11 +62,18 @@ type family ApplyMigration (m :: Migration) (s :: Schema) :: (Revision, Schema) 
   ApplyMigration ('Migration r (d ': ds)) s =
     '(r, Snd (ApplyMigration ('Migration r ds) (Build (MakeBuilder s d))))
 
+-- working with revisions
+
 type family SchemaByRevision (r :: Revision) (vd :: Versioned) :: Schema where
   SchemaByRevision r ('Versioned s (('Migration r ds) ': ms)) =
     Snd (ApplyMigration ('Migration r ds) s)
   SchemaByRevision r ('Versioned s (m ': ms)) =
     SchemaByRevision r ('Versioned (Snd (ApplyMigration m s)) ms)
+
+type family TopVersion (vd :: Versioned) :: Schema where
+  TopVersion ('Versioned s '[])       = s
+  TopVersion ('Versioned s (m ': ms)) =
+    TopVersion ('Versioned (Snd (ApplyMigration m s)) ms)
 
 class MigrateSchema (a :: Schema) (b :: Schema) where
   migrate :: JsonRepr a -> JsonRepr b
@@ -111,8 +120,6 @@ data instance Sing (m :: Migration) where
 
 data Versioned = Versioned Schema [Migration]
 
-type family TypedVersionedSchema
-
 data instance Sing (v :: Versioned) where
   SVersioned
     :: (Known (Sing s), Known (Sing ms))
@@ -130,7 +137,7 @@ type VS =
     '[ 'Migration "test_revision"
        '[ 'Diff '[ 'PKey "foo" ] ('Update ('SchemaText '[])) ] ]
 
-jsonExample :: JsonRepr (SchemaByRevision "test_revision" VS)
+jsonExample :: JsonRepr (TopVersion VS)
 jsonExample = ReprObject $
   FieldRepr (ReprText "foo")
     :& FieldRepr (ReprOptional (Just (ReprText "bar")))
