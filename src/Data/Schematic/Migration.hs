@@ -11,11 +11,62 @@ import Data.Singletons.Prelude hiding (All)
 import Data.Singletons.TypeLits
 import Data.Vinyl
 
+data Path
+  = PKey Symbol -- traverse into the object by key
+  | PTraverse   -- traverse into the array
+
+data instance Sing (p :: Path) where
+  SPKey :: KnownSymbol s => Sing s -> Sing ('PKey s)
+  SPTraverse :: Sing 'PTraverse
+
+-- Result type blueprint
+data Builder
+  = BKey Schema Symbol Build  -- field schema
+  | BTraverse Schema Builder  -- array schema
+  | BScalar Schema
+
+-- Working with keys
+
+type family SchemaByKey (fs :: [(Symbol, Schema)]) (s :: Symbol) :: Schema where
+  SchemaByKey ( '(a, s) ': tl) fn = SchemaByKey tl fn
+  SchemaByKey ( '(fn,s) ': tl) fn = s
+
+type family DeleteKey (acc :: [(Symbol, Schema)]) (fn :: Symbol) (fs :: [(Symbol, Schema)]) :: Schema where
+  DeleteKey acc fn ('(fn, a) ': tl) = acc :++ tl
+  DeleteKey acc fn (fna ': tl) = acc :++ (fna ': tl)
+
+type family UpdateKey (acc :: [(Symbol, Schema)]) (fn :: Symbol) (fs :: [(Symbol, Schema)]) (s :: Schema) :: [(Symbol, Schema)] where
+  UpdateKey acc fn ( '(fn, n) ': tl ) s = '(fn, s) ': tl
+  UpdateKey acc fn ( '(a, n) ': tl) s = acc :++ '(a, n) ': UpdateKey fn tl
+
+type family Build (z :: Builder) :: Schema where
+  Build ('BKey (SchemaObject fs) fn z) = UpdateKey '[] fn fs (Build z)
+  Build ('BTraverse (SchemaArray acs s) z) = SchemaArray acs (Build z)
+  Build ('BScalar s) = s
+
+type family MakeBuilder (s :: Schema) (d :: Diff) :: Builder where
+  MakeBuilder s ('Diff '[] a) = BScalar (ApplyAction a s)
+  MakeBuilder ('SchemaObject fs) ('Diff ('PKey fn ': tl) a) =
+    BKey ('SchemaObject fs) fn (MakeBuilder (SchemaByKey fn fs) ('Diff tl a))
+  MakeBuilder ('SchemaArray acs s) ('Diff ('PTraverse ': tl) a) =
+    MakeBuilder ('SchemaArray acs s) (MakeBuilder s ('Diff tl a))
+
+type family ApplyAction (a :: Action) (s :: Schema) :: Schema where
+  ApplyAction ('AddKey fn s) ('SchemaObject fs) = 'SchemaObject ('(fn,s) ': fs)
+  ApplyAction ('DeleteKey fn) ('SchemaObject fs) = 'SchemaObject (DeleteKey fn fs)
+  ApplyAction ('Update s) t = s
+
+data instance Sing (z :: Builder) where
+  SZipper
+    :: (Known (Sing ts), Known (Sing s))
+    => Sing ts
+    -> Sing s
+    -> Sing (Builder ts s)
 
 class MigrateSchema (a :: Schema) (b :: Schema) where
   migrate :: JsonRepr a -> JsonRepr b
 
-data Action = AddKey Symbol Schema | Update Schema | DeleteKey
+data Action = AddKey Symbol Schema | Update Schema | DeleteKey Symbol
 
 data instance Sing (a :: Action) where
   SAddKey
@@ -42,49 +93,16 @@ data instance Sing (diff :: Diff) where
     -> Sing (a :: Action)
     -> Sing ('Diff jp a)
 
-type family TypedDiffList (s :: Schema) (ds :: [Diff]) :: Constraint where
-  TypedDiffList s '[]       = ()
-  TypedDiffList s (d ': tl) = (TypedDiff s d, TypedDiffList s tl)
-
--- here
-type family TypedDiffListSchema (s :: Schema) (ds :: [Diff]) :: Schema where
-  TypedDiffListSchema s '[]       = s
-  TypedDiffListSchema s (d ': tl) = TypedDiffListSchema (TypedDiffSchema s d) tl
-
-type family TypedDiff (s :: Schema) (d :: Diff) :: Constraint where
-  TypedDiff s ('Diff ps a) = TypedSubSchema s ps
-
-type family TypedDiffSchema (s :: Schema) (d :: Diff) :: Schema where
-  TypedDiffSchema s ('Diff ps a) = TypedSubSchemaSchema s ps
-
-type family TypedSubSchema (s :: Schema) (p :: [PathSegment]) :: Constraint where
-  TypedSubSchema s '[]       = ()
-  TypedSubSchema s (h ': tl) = TypedSubSchema (TraverseStep s h) tl
-
--- issue here
-type family TypedSubSchemaSchema (s :: Schema) (p :: [PathSegment]) :: Schema where
-  TypedSubSchemaSchema s (h ': tl) = TypedSubSchemaSchema (TraverseStep s h) tl
-
-type family TraverseStep (s :: Schema) (ps :: PathSegment) :: Schema where
-  TraverseStep ('SchemaArray acs s) ('Ix n)                = s
-  TraverseStep ('SchemaObject ( '(fn, s) ': tl)) ('Key fn) = s
-  TraverseStep ('SchemaObject ( h ': tl)) ('Key fn)        =
-    TraverseStep ('SchemaObject tl) ('Key fn)
-
-type family SubSchema (s :: Schema) (p :: [PathSegment]) where
-  SubSchema s '[]       = s
-  SubSchema s (h ': tl) = SubSchema (TraverseStep s h) tl
-
 -- | User-provided name of the revision.
 type Revision = Symbol
 
 data Migration = Migration Revision [Diff]
 
-type family TypedMigration (s :: Schema) (m :: Migration) :: Constraint where
-  TypedMigration s ('Migration r ds) = (TypedDiffList s ds)
+-- type family TypedMigration (s :: Schema) (m :: Migration) :: Constraint where
+--   TypedMigration s ('Migration r ds) = (TypedDiffList s ds)
 
-type family TypedMigrationSchema (s :: Schema) (m :: Migration) :: (Symbol, Schema) where
-  TypedMigrationSchema s ('Migration r ds) = '(r, TypedDiffListSchema s ds)
+-- type family TypedMigrationSchema (s :: Schema) (m :: Migration) :: (Symbol, Schema) where
+--   TypedMigrationSchema s ('Migration r ds) = '(r, TypedDiffListSchema s ds)
 
 data instance Sing (m :: Migration) where
   SMigration
@@ -95,12 +113,12 @@ data instance Sing (m :: Migration) where
 
 data Versioned = Versioned Schema [Migration]
 
-type family TypedVersioned (s :: Schema) (ms :: [Migration]) :: Constraint where
-  TypedVersioned s '[]       = ()
-  TypedVersioned s (h ': tl) =
-    ( TypedMigration s h
-    , MigrateSchema s (Snd (TypedMigrationSchema s h))
-    , TypedVersioned (Snd (TypedMigrationSchema s h)) tl )
+-- type family TypedVersioned (s :: Schema) (ms :: [Migration]) :: Constraint where
+--   TypedVersioned s '[]       = ()
+--   TypedVersioned s (h ': tl) =
+--     ( TypedMigration s h
+--     , MigrateSchema s (Snd (TypedMigrationSchema s h))
+--     , TypedVersioned (Snd (TypedMigrationSchema s h)) tl )
 
 type family TypedVersionedSchema
 
@@ -130,4 +148,4 @@ type VS =
 -- jsonExample = ReprObject $
 --   FieldRepr (ReprText "foo")
 --     :& FieldRepr (ReprOptional (Just (ReprText "bar")))
---     :& RNil
+--     :& Nil
