@@ -297,4 +297,4 @@ class FalseConstraint a
 type family TopLevel (schema :: Schema) :: Constraint where
   TopLevel ('SchemaArray acs s) = ()
   TopLevel ('SchemaObject o)    = ()
-  TopLevel spec                 = FalseConstraint spec
+  TopLevel spec                 = 'True ~ 'False

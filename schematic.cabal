@@ -17,6 +17,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Data.Schematic
+                     -- , Data.Schematic.Class
                      , Data.Schematic.Instances
                      , Data.Schematic.Path
                      , Data.Schematic.Schema

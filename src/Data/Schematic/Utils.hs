@@ -34,3 +34,9 @@ instance Known (Rec Sing '[]) where
 
 instance (Known (Sing a), Known (Rec Sing tl)) => Known (Rec Sing (a ': tl)) where
   known = known :& known
+
+data Dict c where
+  Dict :: c => Dict c
+
+instance c => Known (Dict c) where
+  known = Dict

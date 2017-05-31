@@ -3,12 +3,14 @@
 
 module Data.Schematic.Migration where
 
+import Data.Kind
 import Data.Schematic.Path
 import Data.Schematic.Schema
 import Data.Schematic.Utils
 import Data.Singletons.Prelude hiding (All)
 import Data.Singletons.TypeLits
-import Data.Vinyl
+import Data.Vinyl hiding (Dict)
+
 
 data Path
   = PKey Symbol -- traverse into the object by key
@@ -70,13 +72,64 @@ type family SchemaByRevision (r :: Revision) (vd :: Versioned) :: Schema where
   SchemaByRevision r ('Versioned s (m ': ms)) =
     SchemaByRevision r ('Versioned (Snd (ApplyMigration m s)) ms)
 
-type family TopVersion (vd :: Versioned) :: Schema where
-  TopVersion ('Versioned s '[])       = s
-  TopVersion ('Versioned s (m ': ms)) =
-    TopVersion ('Versioned (Snd (ApplyMigration m s)) ms)
+-- type family Reverse (acc :: [(Revision, Schema)]) (rs :: [(Revision, Schema)]) :: [(Revision, Schema)] where
+--   Reverse acc '[] = acc
+--   Reverse acc (h ': tl) = Reverse (h ': acc) tl
+
+type family Migratable (rs :: [(Revision, Schema)]) :: Constraint where
+  -- constraint duplication
+  Migratable ('(r,s) ': '(r', s') ': tl) =
+    (Known (Sing s), MigrateSchema s s', TopLevel s, Migratable ('(r',s') ': tl))
+  Migratable ('(r,s) ': '[])             = (TopLevel s, Known (Sing s))
+  -- Migratable '[]                         = ('True ~ 'False)
+
+-- data NonEmpty a = a :| [a]
+
+-- data instance Sing (ne :: NonEmpty a) where
+--   SNECons :: Known (Sing e), Known (Sing l))=> Sing (e :: k) -> Sing (l :: [k]) -> Sing (e ':| l)
+
+data Revisions = Revisions
+  Schema -- top version
+  [(Revision, Schema)]
+
+data instance Sing (rs :: Revisions) where
+  SRevisions
+    :: (Known (Sing schema), Known (Sing rps), Known (Dict (ElemOf schema prs)))
+    => Sing schema
+    -> Sing rps
+    -> Sing ('Revisions schema rps)
+
+-- -- | Heterogenous list with a proof of element schema included in the list itself.
+-- data ElemList :: k -> [k] -> Type where
+--   Singl :: Known (Sing schema) => Sing schema -> ElemList schema '[schema]
+--   KeepProof :: Known (Sing new) => Sing new -> ElemList schema ss -> ElemList schema (new ': ss)
+--   NewProof :: Known (Sing new) => Sing new -> ElemList schema ss -> ElemList new (new ': ss)
+
+type family ElemOf (e :: k) (l :: [(a,k)]) :: Constraint where
+  ElemOf e '[] = 'True ~ 'False
+  ElemOf e ( '(a, e) ': es) = ()
+  ElemOf e (n ': es) = ElemOf e es
+
+-- | Extracts revision/schema pairs from @Versioned@ in reverse order.
+type family AllVersions (vd :: Versioned) :: Revisions where
+  AllVersions ('Versioned s ms) = AllVersions' ('Revisions s '[ '("initial", s) ]) ms
+
+type family AllVersions' (acc :: Revisions) (ms :: [Migration]) :: Revisions where
+  AllVersions' acc '[] = acc
+  AllVersions' ('Revisions tv rs) (m ': ms) =
+    AllVersions' ('Revisions (Snd (ApplyMigration m tv)) (rs :++ '[(ApplyMigration m tv)])) ms
+
+type family TopVersion (rs :: Revisions) :: Schema where
+  TopVersion ('Revisions s rs) = s
+
+type family SchemaPairs (rs :: Revisions) :: [(Revision, Schema)] where
+  SchemaPairs ('Revisions s rs) = rs
 
 class MigrateSchema (a :: Schema) (b :: Schema) where
   migrate :: JsonRepr a -> JsonRepr b
+
+instance MigrateSchema a a where
+  migrate = id
 
 data Action = AddKey Symbol Schema | Update Schema | DeleteKey Symbol
 
@@ -137,7 +190,7 @@ type VS =
     '[ 'Migration "test_revision"
        '[ 'Diff '[ 'PKey "foo" ] ('Update ('SchemaText '[])) ] ]
 
-jsonExample :: JsonRepr (TopVersion VS)
+jsonExample :: JsonRepr (TopVersion (AllVersions VS))
 jsonExample = ReprObject $
   FieldRepr (ReprText "foo")
     :& FieldRepr (ReprOptional (Just (ReprText "bar")))
