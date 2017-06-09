@@ -83,35 +83,30 @@ parseAndValidateTopVersionJson _ v =
 
 -- [("top version", schemaTopVersion), ("n-1 version", schemaNminusOneVersion), ...]
 
+-- type family Migratable (rs :: [(Revision, Schema)]) :: Constraint where
+--   -- constraint duplication
+--   Migratable ('(r,s) ': '(r', s') ': tl) =
+--     (SingI s, MigrateSchema s s', TopLevel s, Migratable ('(r',s') ': tl))
+--   Migratable ('(r,s) ': '[])             = (TopLevel s, SingI s)
+--   -- Migratable '[]                         = ('True ~ 'False)
+
+class Migratable (revisions :: [(Revision, Schema)]) where
+  mparse :: Sing revisions -> J.Value -> Either String (JsonRepr (Snd (Head revisions)))
+
+instance {-# OVERLAPPING #-} (Migratable (Tail revisions), MigrateSchema (Snd (Head (Tail revisions))) (Snd (Head revisions)), SingI (Snd (Head revisions))) => Migratable revisions where
+  mparse s v = case parseEither parseJSON v of
+    Left _  -> migrate <$> mparse (sTail s) v
+    Right x -> Right x
+
+instance {-# OVERLAPPABLE #-} (TopLevel (Snd rev), SingI (Snd rev)) => Migratable '[rev] where
+  mparse _ = parseEither parseJSON
+
 parseAndValidateVersionedJson
-  :: forall proxy rav av (v :: Versioned) rs tv
-  . ( SingI (AllVersions v)
-    , Migratable (AllVersions v)
-    , SingI (TopVersion (AllVersions v))
-    , SingI (AllVersions v))
+  :: forall proxy v. (SingI (AllVersions v), Migratable (AllVersions v))
   => proxy v
   -> J.Value
-  -> ParseResult (JsonRepr (TopVersion (AllVersions v)))
-parseAndValidateVersionedJson _ v =
-  let
-    rss :: Sing (AllVersions v)
-    rss = sing
-    stv :: Sing (TopVersion (AllVersions v))
-    stv = sing
-  in parseAndValidateVersionedJsonByVersions stv rss v
-
-parseAndValidateVersionedJsonByVersions
-  :: forall (rs :: [(Revision, Schema)]) tv proxy
-  . (Migratable rs)
-  => proxy (tv :: Schema)
-  -> Sing rs
-  -> J.Value
-  -> ParseResult (JsonRepr tv)
-parseAndValidateVersionedJsonByVersions stv srs value = case srs of
-  SNil -> DecodingError "blabla"
-  SCons (STuple2 r s) tl -> case parseAndValidateJsonBySing s value of
-    Valid a -> Valid $ migrate a
-    _       -> DecodingError "dummy plug"
+  -> Either String (JsonRepr (Snd (Head (AllVersions v))))
+parseAndValidateVersionedJson s v = mparse (sing :: Sing (AllVersions v)) v
 
 decodeAndValidateJson
   :: forall schema

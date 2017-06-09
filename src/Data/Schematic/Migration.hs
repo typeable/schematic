@@ -81,13 +81,6 @@ type family SchemaByRevision (r :: Revision) (vd :: Versioned) :: Schema where
 --   Reverse acc '[] = acc
 --   Reverse acc (h ': tl) = Reverse (h ': acc) tl
 
-type family Migratable (rs :: [(Revision, Schema)]) :: Constraint where
-  -- constraint duplication
-  Migratable ('(r,s) ': '(r', s') ': tl) =
-    (SingI s, MigrateSchema s s', TopLevel s, Migratable ('(r',s') ': tl))
-  Migratable ('(r,s) ': '[])             = (TopLevel s, SingI s)
-  -- Migratable '[]                         = ('True ~ 'False)
-
 type family ElemOf (e :: k) (l :: [(a,k)]) :: Constraint where
   ElemOf e '[] = 'True ~ 'False
   ElemOf e ( '(a, e) ': es) = ()
