@@ -13,7 +13,7 @@ import Data.HashMap.Strict as H
 import Data.Kind
 import Data.Maybe
 import Data.Schematic.Instances ()
-import Data.Schematic.Utils
+
 import Data.Scientific
 import Data.Singletons.Prelude.List hiding (All)
 import Data.Singletons.TH
@@ -49,14 +49,14 @@ data instance Sing (tc :: TextConstraint) where
   STEq :: (KnownNat n) => Sing n -> Sing ('TEq n)
   STLe :: (KnownNat n) => Sing n -> Sing ('TLe n)
   STGt :: (KnownNat n) => Sing n -> Sing ('TGt n)
-  STRegex :: (KnownSymbol s, Known (Sing s)) => Sing s -> Sing ('TRegex s)
-  STEnum :: (All KnownSymbol ss, Known (Sing ss)) => Sing ss -> Sing ('TEnum ss)
+  STRegex :: (KnownSymbol s, SingI s) => Sing s -> Sing ('TRegex s)
+  STEnum :: (All KnownSymbol ss, SingI ss) => Sing ss -> Sing ('TEnum ss)
 
-instance (KnownNat n) => Known (Sing ('TEq n)) where known = STEq known
-instance (KnownNat n) => Known (Sing ('TGt n)) where known = STGt known
-instance (KnownNat n) => Known (Sing ('TLe n)) where known = STLe known
-instance (KnownSymbol s, Known (Sing s)) => Known (Sing ('TRegex s)) where known = STRegex known
-instance (All KnownSymbol ss, Known (Sing ss)) => Known (Sing ('TEnum ss)) where known = STEnum known
+instance (KnownNat n) => SingI ('TEq n) where sing = STEq sing
+instance (KnownNat n) => SingI ('TGt n) where sing = STGt sing
+instance (KnownNat n) => SingI ('TLe n) where sing = STLe sing
+instance (KnownSymbol s, SingI s) => SingI ('TRegex s) where sing = STRegex sing
+instance (All KnownSymbol ss, SingI ss) => SingI ('TEnum ss) where sing = STEnum sing
 
 instance Eq (Sing ('TEq n)) where _ == _ = True
 instance Eq (Sing ('TLe n)) where _ == _ = True
@@ -75,9 +75,9 @@ data instance Sing (nc :: NumberConstraint) where
   SNGt :: KnownNat n => Sing n -> Sing ('NGt n)
   SNLe :: KnownNat n => Sing n -> Sing ('NLe n)
 
-instance KnownNat n => Known (Sing ('NEq n)) where known = SNEq known
-instance KnownNat n => Known (Sing ('NGt n)) where known = SNGt known
-instance KnownNat n => Known (Sing ('NLe n)) where known = SNLe known
+instance KnownNat n => SingI ('NEq n) where sing = SNEq sing
+instance KnownNat n => SingI ('NGt n) where sing = SNGt sing
+instance KnownNat n => SingI ('NLe n) where sing = SNLe sing
 
 instance Eq (Sing ('NEq n)) where _ == _ = True
 instance Eq (Sing ('NLe n)) where _ == _ = True
@@ -90,7 +90,7 @@ data ArrayConstraint
 data instance Sing (ac :: ArrayConstraint) where
   SAEq :: KnownNat n => Sing n -> Sing ('AEq n)
 
-instance KnownNat n => Known (Sing ('AEq n)) where known = SAEq known
+instance KnownNat n => SingI ('AEq n) where sing = SAEq sing
 
 instance Eq (Sing ('AEq n)) where _ == _ = True
 
@@ -104,25 +104,25 @@ data Schema
   deriving (Generic)
 
 data instance Sing (schema :: Schema) where
-  SSchemaText :: Known (Sing tcs) => Sing tcs -> Sing ('SchemaText tcs)
-  SSchemaNumber :: Known (Sing ncs) => Sing ncs -> Sing ('SchemaNumber ncs)
-  SSchemaArray :: (Known (Sing acs), Known (Sing schema)) => Sing acs -> Sing schema -> Sing ('SchemaArray acs schema)
-  SSchemaObject :: Known (Sing fields) => Sing fields -> Sing ('SchemaObject fields)
-  SSchemaOptional :: Known (Sing s) => Sing s -> Sing ('SchemaOptional s)
+  SSchemaText :: SingI tcs => Sing tcs -> Sing ('SchemaText tcs)
+  SSchemaNumber :: SingI ncs => Sing ncs -> Sing ('SchemaNumber ncs)
+  SSchemaArray :: (SingI acs, SingI schema) => Sing acs -> Sing schema -> Sing ('SchemaArray acs schema)
+  SSchemaObject :: SingI fields => Sing fields -> Sing ('SchemaObject fields)
+  SSchemaOptional :: SingI s => Sing s -> Sing ('SchemaOptional s)
   SSchemaNull :: Sing 'SchemaNull
 
-instance Known (Sing sl) => Known (Sing ('SchemaText sl)) where
-  known = SSchemaText known
-instance Known (Sing sl) => Known (Sing ('SchemaNumber sl)) where
-  known = SSchemaNumber known
-instance Known (Sing 'SchemaNull) where
-  known = SSchemaNull
-instance (Known (Sing ac), Known (Sing s)) => Known (Sing ('SchemaArray ac s)) where
-  known = SSchemaArray known known
-instance Known (Sing stl) => Known (Sing ('SchemaObject stl)) where
-  known = SSchemaObject known
-instance Known (Sing s) => Known (Sing ('SchemaOptional s)) where
-  known = SSchemaOptional known
+instance SingI sl => SingI ('SchemaText sl) where
+  sing = SSchemaText sing
+instance SingI sl => SingI ('SchemaNumber sl) where
+  sing = SSchemaNumber sing
+instance SingI 'SchemaNull where
+  sing = SSchemaNull
+instance (SingI ac, SingI s) => SingI ('SchemaArray ac s) where
+  sing = SSchemaArray sing sing
+instance SingI stl => SingI ('SchemaObject stl) where
+  sing = SSchemaObject sing
+instance SingI s => SingI ('SchemaOptional s) where
+  sing = SSchemaOptional sing
 
 instance Eq (Sing ('SchemaText cs)) where _ == _ = True
 instance Eq (Sing ('SchemaNumber cs)) where _ == _ = True
@@ -133,7 +133,7 @@ instance Eq (Sing ('SchemaOptional s)) where _ == _ = True
 
 data FieldRepr :: (Symbol, Schema) -> Type where
   FieldRepr
-    :: (Known (Sing schema), KnownSymbol name)
+    :: (SingI schema, KnownSymbol name)
     => JsonRepr schema
     -> FieldRepr '(name, schema)
 
@@ -146,10 +146,10 @@ knownFieldName _ = T.pack $ symbolVal (Proxy @fieldName)
 
 knownFieldSchema
   :: forall proxy fieldName schema
-  .  Known (Sing schema)
+  .  SingI schema
   => proxy '(fieldName, schema)
   -> Sing schema
-knownFieldSchema _ = known
+knownFieldSchema _ = sing
 
 deriving instance Show (JsonRepr schema) => Show (FieldRepr '(name, schema))
 
@@ -158,7 +158,7 @@ instance Eq (JsonRepr schema) => Eq (FieldRepr '(name, schema)) where
 
 instance
   ( KnownSymbol name
-  , Known (Sing schema)
+  , SingI schema
   , Serial m (JsonRepr schema) )
   => Serial m (FieldRepr '(name, schema)) where
   series = FieldRepr <$> series
@@ -230,14 +230,14 @@ instance Eq (JsonRepr s) => Eq (JsonRepr ('SchemaOptional s)) where
   ReprOptional a == ReprOptional b = a == b
 
 fromOptional
-  :: (Known (Sing s))
+  :: SingI s
   => Sing ('SchemaOptional s)
   -> J.Value
   -> Parser (Maybe (JsonRepr s))
 fromOptional _ = parseJSON
 
-instance Known (Sing schema) => J.FromJSON (JsonRepr schema) where
-  parseJSON value = case known :: Sing schema of
+instance SingI schema => J.FromJSON (JsonRepr schema) where
+  parseJSON value = case sing :: Sing schema of
     SSchemaText _        -> withText "String" (pure . ReprText) value
     SSchemaNumber _      -> withScientific "Number" (pure . ReprNumber) value
     SSchemaNull          -> case value of

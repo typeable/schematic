@@ -60,7 +60,7 @@ parseAndValidateJsonBySing sschema v = case parseEither parseJSON v of
 
 parseAndValidateTopVersionJson
   :: forall proxy (v :: Versioned)
-  .  (Known (Sing (TopVersion (AllVersions v))))
+  .  (SingI (TopVersion (AllVersions v)))
   => proxy v
   -> J.Value
   -> ParseResult (JsonRepr (TopVersion (AllVersions v)))
@@ -70,7 +70,7 @@ parseAndValidateTopVersionJson _ v =
     Right jsonRepr ->
       let
         validate =
-          validateJsonRepr (known :: Sing (TopVersion (AllVersions v))) [] jsonRepr
+          validateJsonRepr (sing :: Sing (TopVersion (AllVersions v))) [] jsonRepr
         res      = runIdentity . runValidationTEither $ validate
       in case res of
         Left em  -> ValidationError em
@@ -78,19 +78,19 @@ parseAndValidateTopVersionJson _ v =
 
 parseAndValidateVersionedJson
   :: forall proxy rav av (v :: Versioned) rs tv
-  . ( Known (Sing (AllVersions v))
+  . ( SingI (AllVersions v)
     , Migratable (SchemaPairs (AllVersions v))
-    , (Known (Sing (TopVersion (AllVersions v))))
-    , (Known (Sing (SchemaPairs (AllVersions v)))))
+    , SingI (TopVersion (AllVersions v))
+    , SingI (SchemaPairs (AllVersions v)))
   => proxy v
   -> J.Value
   -> ParseResult (JsonRepr (TopVersion (AllVersions v)))
 parseAndValidateVersionedJson _ v =
   let
     rss :: Sing (SchemaPairs (AllVersions v))
-    rss = known
+    rss = sing
     stv :: Sing (TopVersion (AllVersions v))
-    stv = known
+    stv = sing
   in parseAndValidateVersionedJsonByVersions stv rss v
 
 parseAndValidateVersionedJsonByVersions
@@ -108,7 +108,7 @@ parseAndValidateVersionedJsonByVersions stv srs value = case srs of
 
 decodeAndValidateJson
   :: forall schema
-  .  (J.FromJSON (JsonRepr schema), TopLevel schema, Known (Sing schema))
+  .  (J.FromJSON (JsonRepr schema), TopLevel schema, SingI schema)
   => BL.ByteString
   -> ParseResult (JsonRepr schema)
 decodeAndValidateJson bs = case decode bs of

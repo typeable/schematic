@@ -20,6 +20,12 @@ data instance Sing (p :: Path) where
   SPKey :: KnownSymbol s => Sing s -> Sing ('PKey s)
   SPTraverse :: Sing 'PTraverse
 
+instance KnownSymbol s => SingI ('PKey s) where
+  sing = SPKey sing
+
+instance SingI 'PTraverse where
+  sing = SPTraverse
+
 -- Result type blueprint
 data Builder
   = BKey Schema Symbol Builder  -- field schema
@@ -79,8 +85,8 @@ type family SchemaByRevision (r :: Revision) (vd :: Versioned) :: Schema where
 type family Migratable (rs :: [(Revision, Schema)]) :: Constraint where
   -- constraint duplication
   Migratable ('(r,s) ': '(r', s') ': tl) =
-    (Known (Sing s), MigrateSchema s s', TopLevel s, Migratable ('(r',s') ': tl))
-  Migratable ('(r,s) ': '[])             = (TopLevel s, Known (Sing s))
+    (SingI s, MigrateSchema s s', TopLevel s, Migratable ('(r',s') ': tl))
+  Migratable ('(r,s) ': '[])             = (TopLevel s, SingI s)
   -- Migratable '[]                         = ('True ~ 'False)
 
 -- data NonEmpty a = a :| [a]
@@ -94,7 +100,7 @@ data Revisions = Revisions
 
 data instance Sing (rs :: Revisions) where
   SRevisions
-    :: (Known (Sing schema), Known (Sing rps), Known (Dict (ElemOf schema prs)))
+    :: (SingI schema, SingI rps, Known (Dict (ElemOf schema prs)))
     => Sing schema
     -> Sing rps
     -> Sing ('Revisions schema rps)
@@ -135,18 +141,12 @@ data Action = AddKey Symbol Schema | Update Schema | DeleteKey Symbol
 
 data instance Sing (a :: Action) where
   SAddKey
-    :: (Known (Sing n), Known (Sing s))
+    :: (SingI n, SingI s)
     => Sing n
     -> Sing s
     -> Sing ('AddKey n s)
-  SUpdate :: Known (Sing s) => Sing s -> Sing ('Update s)
+  SUpdate :: (SingI s) => Sing s -> Sing ('Update s)
   SDeleteKey :: KnownSymbol s => Sing s -> Sing ('DeleteKey s)
-
-instance (Known (Sing n), Known (Sing s)) => Known (Sing ('AddKey n s)) where
-  known = SAddKey known known
-instance (Known (Sing s)) => Known (Sing ('Update s)) where known = SUpdate known
-instance (KnownSymbol s, Known (Sing s)) => Known (Sing ('DeleteKey s)) where
-  known = SDeleteKey known
 
 -- | User-supplied atomic difference between schemas.
 -- Migrations can consists of many differences.
@@ -154,7 +154,7 @@ data Diff = Diff [Path] Action
 
 data instance Sing (diff :: Diff) where
   SDiff
-    :: (Known (Sing jp), Known (Sing a))
+    :: (SingI jp, SingI a)
     => Sing (jp :: [Path])
     -> Sing (a :: Action)
     -> Sing ('Diff jp a)
@@ -166,7 +166,7 @@ data Migration = Migration Revision [Diff]
 
 data instance Sing (m :: Migration) where
   SMigration
-    :: (KnownSymbol r, Known (Sing ds))
+    :: (KnownSymbol r, SingI ds)
     => Sing r
     -> Sing ds
     -> Sing ('Migration r ds)
@@ -175,7 +175,7 @@ data Versioned = Versioned Schema [Migration]
 
 data instance Sing (v :: Versioned) where
   SVersioned
-    :: (Known (Sing s), Known (Sing ms))
+    :: (SingI s, SingI ms)
     => Sing (s :: Schema)  -- base version
     -> Sing (ms :: [Migration]) -- a bunch of migrations
     -> Sing ('Versioned s ms)
