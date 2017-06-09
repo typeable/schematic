@@ -28,7 +28,7 @@ import Data.Text as T
 
 parseAndValidateJson
   :: forall schema
-  .  (J.FromJSON (JsonRepr schema), TopLevel schema, Known (Sing schema))
+  .  (J.FromJSON (JsonRepr schema), TopLevel schema, SingI schema)
   => J.Value
   -> ParseResult (JsonRepr schema)
 parseAndValidateJson v =
@@ -36,7 +36,7 @@ parseAndValidateJson v =
     Left s         -> DecodingError $ T.pack s
     Right jsonRepr ->
       let
-        validate = validateJsonRepr (known :: Sing schema) [] jsonRepr
+        validate = validateJsonRepr (sing :: Sing schema) [] jsonRepr
         res      = runIdentity . runValidationTEither $ validate
       in case res of
         Left em  -> ValidationError em
