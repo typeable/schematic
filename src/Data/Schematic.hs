@@ -7,10 +7,12 @@ module Data.Schematic
   , decodeAndValidateJson
   , parseAndValidateJson
   , parseAndValidateVersionedJson
+  , parseAndValidateTopVersionJson
   , isValid
   , isDecodingError
   , isValidationError
   , ParseResult(..)
+  , Migratable
   ) where
 
 import Control.Monad.Validation
@@ -42,27 +44,6 @@ parseAndValidateJson v =
         Left em  -> ValidationError em
         Right () -> Valid jsonRepr
 
-parseAndValidateJsonBySing
-  :: forall schema proxy
-  . (J.FromJSON (JsonRepr schema), TopLevel schema)
-  => Sing schema
-  -> J.Value
-  -> ParseResult (JsonRepr schema)
-parseAndValidateJsonBySing sschema v = case parseEither parseJSON v of
-  Left s         -> DecodingError $ T.pack s
-  Right jsonRepr ->
-    let
-      validate = validateJsonRepr sschema [] jsonRepr
-      res      = runIdentity . runValidationTEither $ validate
-    in case res of
-      Left em  -> ValidationError em
-      Right () -> Valid jsonRepr
-
--- parseAndValidateVersionedJson
---   :: MList (m ': ms)
---   -> J.Value
---   -> ParseResult (JsonRepr)
-
 parseAndValidateTopVersionJson
   :: forall proxy (v :: Versioned)
   .  (SingI (TopVersion (AllVersions v)))
@@ -81,32 +62,30 @@ parseAndValidateTopVersionJson _ v =
         Left em  -> ValidationError em
         Right () -> Valid jsonRepr
 
--- [("top version", schemaTopVersion), ("n-1 version", schemaNminusOneVersion), ...]
-
--- type family Migratable (rs :: [(Revision, Schema)]) :: Constraint where
---   -- constraint duplication
---   Migratable ('(r,s) ': '(r', s') ': tl) =
---     (SingI s, MigrateSchema s s', TopLevel s, Migratable ('(r',s') ': tl))
---   Migratable ('(r,s) ': '[])             = (TopLevel s, SingI s)
---   -- Migratable '[]                         = ('True ~ 'False)
-
 class Migratable (revisions :: [(Revision, Schema)]) where
-  mparse :: Sing revisions -> J.Value -> Either String (JsonRepr (Snd (Head revisions)))
+  mparse
+    :: Sing revisions
+    -> J.Value
+    -> ParseResult (JsonRepr (Snd (Head revisions)))
 
-instance {-# OVERLAPPING #-} (Migratable (Tail revisions), MigrateSchema (Snd (Head (Tail revisions))) (Snd (Head revisions)), SingI (Snd (Head revisions))) => Migratable revisions where
+instance {-# OVERLAPPING #-}
+  ( Migratable (Tail revisions)
+  , MigrateSchema (Snd (Head (Tail revisions))) (Snd (Head revisions))
+  , SingI (Snd (Head revisions)))
+  => Migratable revisions where
   mparse s v = case parseEither parseJSON v of
     Left _  -> migrate <$> mparse (sTail s) v
-    Right x -> Right x
+    Right x -> Valid x
 
 instance {-# OVERLAPPABLE #-} (TopLevel (Snd rev), SingI (Snd rev)) => Migratable '[rev] where
-  mparse _ = parseEither parseJSON
+  mparse _ = parseAndValidateJson
 
 parseAndValidateVersionedJson
   :: forall proxy v. (SingI (AllVersions v), Migratable (AllVersions v))
   => proxy v
   -> J.Value
-  -> Either String (JsonRepr (Snd (Head (AllVersions v))))
-parseAndValidateVersionedJson s v = mparse (sing :: Sing (AllVersions v)) v
+  -> ParseResult (JsonRepr (Snd (Head (AllVersions v))))
+parseAndValidateVersionedJson _ v = mparse (sing :: Sing (AllVersions v)) v
 
 decodeAndValidateJson
   :: forall schema
