@@ -58,6 +58,11 @@ parseAndValidateJsonBySing sschema v = case parseEither parseJSON v of
       Left em  -> ValidationError em
       Right () -> Valid jsonRepr
 
+-- parseAndValidateVersionedJson
+--   :: MList (m ': ms)
+--   -> J.Value
+--   -> ParseResult (JsonRepr)
+
 parseAndValidateTopVersionJson
   :: forall proxy (v :: Versioned)
   .  (SingI (TopVersion (AllVersions v)))
@@ -76,18 +81,20 @@ parseAndValidateTopVersionJson _ v =
         Left em  -> ValidationError em
         Right () -> Valid jsonRepr
 
+-- [("top version", schemaTopVersion), ("n-1 version", schemaNminusOneVersion), ...]
+
 parseAndValidateVersionedJson
   :: forall proxy rav av (v :: Versioned) rs tv
   . ( SingI (AllVersions v)
-    , Migratable (SchemaPairs (AllVersions v))
+    , Migratable (AllVersions v)
     , SingI (TopVersion (AllVersions v))
-    , SingI (SchemaPairs (AllVersions v)))
+    , SingI (AllVersions v))
   => proxy v
   -> J.Value
   -> ParseResult (JsonRepr (TopVersion (AllVersions v)))
 parseAndValidateVersionedJson _ v =
   let
-    rss :: Sing (SchemaPairs (AllVersions v))
+    rss :: Sing (AllVersions v)
     rss = sing
     stv :: Sing (TopVersion (AllVersions v))
     stv = sing

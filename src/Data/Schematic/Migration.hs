@@ -6,7 +6,6 @@ module Data.Schematic.Migration where
 import Data.Kind
 import Data.Schematic.Path
 import Data.Schematic.Schema
-import Data.Schematic.Utils
 import Data.Singletons.Prelude hiding (All)
 import Data.Singletons.TypeLits
 import Data.Vinyl hiding (Dict)
@@ -89,47 +88,22 @@ type family Migratable (rs :: [(Revision, Schema)]) :: Constraint where
   Migratable ('(r,s) ': '[])             = (TopLevel s, SingI s)
   -- Migratable '[]                         = ('True ~ 'False)
 
--- data NonEmpty a = a :| [a]
-
--- data instance Sing (ne :: NonEmpty a) where
---   SNECons :: Known (Sing e), Known (Sing l))=> Sing (e :: k) -> Sing (l :: [k]) -> Sing (e ':| l)
-
-data Revisions = Revisions
-  Schema -- top version
-  [(Revision, Schema)]
-
-data instance Sing (rs :: Revisions) where
-  SRevisions
-    :: (SingI schema, SingI rps, Known (Dict (ElemOf schema prs)))
-    => Sing schema
-    -> Sing rps
-    -> Sing ('Revisions schema rps)
-
--- -- | Heterogenous list with a proof of element schema included in the list itself.
--- data ElemList :: k -> [k] -> Type where
---   Singl :: Known (Sing schema) => Sing schema -> ElemList schema '[schema]
---   KeepProof :: Known (Sing new) => Sing new -> ElemList schema ss -> ElemList schema (new ': ss)
---   NewProof :: Known (Sing new) => Sing new -> ElemList schema ss -> ElemList new (new ': ss)
-
 type family ElemOf (e :: k) (l :: [(a,k)]) :: Constraint where
   ElemOf e '[] = 'True ~ 'False
   ElemOf e ( '(a, e) ': es) = ()
   ElemOf e (n ': es) = ElemOf e es
 
 -- | Extracts revision/schema pairs from @Versioned@ in reverse order.
-type family AllVersions (vd :: Versioned) :: Revisions where
-  AllVersions ('Versioned s ms) = AllVersions' ('Revisions s '[ '("initial", s) ]) ms
+type family AllVersions (vd :: Versioned) :: [(Revision, Schema)] where
+  AllVersions ('Versioned s ms) = AllVersions' '[ '("initial", s) ] ms
 
-type family AllVersions' (acc :: Revisions) (ms :: [Migration]) :: Revisions where
-  AllVersions' acc '[] = acc
-  AllVersions' ('Revisions tv rs) (m ': ms) =
-    AllVersions' ('Revisions (Snd (ApplyMigration m tv)) (rs :++ '[(ApplyMigration m tv)])) ms
+type family AllVersions' (acc :: [(Revision, Schema)]) (ms :: [Migration]) = (r :: [(Revision, Schema)]) where
+  AllVersions' acc '[]                       = acc
+  AllVersions' ( '(rh, sh) ': tl ) (m ': ms) =
+    AllVersions' ( ApplyMigration m sh ': tl ) ms
 
-type family TopVersion (rs :: Revisions) :: Schema where
-  TopVersion ('Revisions s rs) = s
-
-type family SchemaPairs (rs :: Revisions) :: [(Revision, Schema)] where
-  SchemaPairs ('Revisions s rs) = rs
+type family TopVersion (rs :: [(Revision, Schema)]) :: Schema where
+  TopVersion ( '(rh, sh) ': tl) = sh
 
 class MigrateSchema (a :: Schema) (b :: Schema) where
   migrate :: JsonRepr a -> JsonRepr b
@@ -180,6 +154,14 @@ data instance Sing (v :: Versioned) where
     -> Sing (ms :: [Migration]) -- a bunch of migrations
     -> Sing ('Versioned s ms)
 
+-- data MList ms where
+--   MSing :: proxy a -> MList '[a]
+--   MCons :: Dict (MigrateSchema h a) -> proxy a -> MList (h ': tl) -> MList (a ': h ': tl)
+
+-- data MList ms where
+--   MSing :: proxy a -> MList '[a]
+--   MCons :: (JsonRepr h -> JsonRepr a) -> proxy a -> MList (h ': tl) -> MList (a ': h ': tl)
+
 type SchemaExample
   = 'SchemaObject
     '[ '("foo", 'SchemaArray '[ 'AEq 1] ( 'SchemaNumber '[ 'NGt 10 ]))
@@ -195,3 +177,9 @@ jsonExample = ReprObject $
   FieldRepr (ReprText "foo")
     :& FieldRepr (ReprOptional (Just (ReprText "bar")))
     :& RNil
+
+
+-- tail :: [a] -> [a]
+-- sTail :: Sing s -> Sing (Tail s)
+-- :: (Head (Tail foo))
+-- sHead (sTail foo)
