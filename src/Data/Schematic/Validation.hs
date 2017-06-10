@@ -24,8 +24,8 @@ type ErrorMap = MonoidMap Text [Text]
 
 data ParseResult a
   = Valid a
-  | DecodingError Text
-  | ValidationError ErrorMap
+  | DecodingError Text       -- static
+  | ValidationError ErrorMap -- runtime
   deriving (Show, Eq, Functor)
 
 isValid :: ParseResult a -> Bool

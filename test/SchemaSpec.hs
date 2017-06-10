@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fprint-potential-instances #-}
+
 module SchemaSpec (spec, main) where
 
 import Control.Monad
@@ -16,7 +18,13 @@ import Test.SmallCheck.Series.Instances
 type SchemaExample
   = SchemaObject
     '[ '("foo", SchemaArray '[AEq 1] (SchemaNumber '[NGt 10]))
-     , '("bar", SchemaOptional (SchemaText '[TRegex "\\w+", TEnum '["foo", "bar"]]))]
+     , '("bar", SchemaOptional (SchemaText '[TEnum '["foo", "bar"]]))]
+
+type VS =
+  'Versioned SchemaExample
+    '[ 'Migration "test_revision"
+       '[ 'Diff '[ 'PKey "bar" ] ('Update ('SchemaText '[]))
+        , 'Diff '[ 'PKey "foo" ] ('Update ('SchemaNumber '[])) ] ]
 
 exampleTest :: JsonRepr (SchemaOptional (SchemaText '[TEq 3]))
 exampleTest = ReprOptional (Just (ReprText "lil"))
@@ -39,6 +47,9 @@ schemaJson = "{\"foo\": [13], \"bar\": null}"
 schemaJson2 :: ByteString
 schemaJson2 = "{\"foo\": [3], \"bar\": null}"
 
+schemaJsonTopVersion :: ByteString
+schemaJsonTopVersion = "{ \"foo\": 42, \"bar\": \"bar\" }"
+
 spec :: Spec
 spec = do
   -- it "show/read JsonRepr properly" $
@@ -54,6 +65,9 @@ spec = do
   it "validates incorrect representation" $
     ((decodeAndValidateJson schemaJson2) :: ParseResult (JsonRepr SchemaExample))
       `shouldSatisfy` isValidationError
+  it "validates versioned json" $ do
+    (decodeAndValidateVersionedJson (Proxy @VS) schemaJsonTopVersion)
+      `shouldSatisfy` isValid
 
 main :: IO ()
 main = hspec spec

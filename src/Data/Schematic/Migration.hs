@@ -8,7 +8,7 @@ import Data.Schematic.Path
 import Data.Schematic.Schema
 import Data.Singletons.Prelude hiding (All)
 import Data.Singletons.TypeLits
-import Data.Vinyl hiding (Dict)
+-- import Data.Vinyl hiding (Dict)
 
 
 data Path
@@ -41,14 +41,17 @@ type family DeleteKey (acc :: [(Symbol, Schema)]) (fn :: Symbol) (fs :: [(Symbol
   DeleteKey acc fn ('(fn, a) ': tl) = acc :++ tl
   DeleteKey acc fn (fna ': tl) = acc :++ (fna ': tl)
 
-type family UpdateKey (acc :: [(Symbol, Schema)]) (fn :: Symbol) (fs :: [(Symbol, Schema)]) (s :: Schema) :: [(Symbol, Schema)] where
-  UpdateKey acc fn ( '(fn, n) ': tl ) s = '(fn, s) ': tl
-  UpdateKey acc fn ( '(a, n) ': tl) s = UpdateKey (acc :++ '[ '(a,n) ]) fn tl s
+type family UpdateKey
+  (fn :: Symbol)
+  (fs :: [(Symbol, Schema)])
+  (s :: Schema) = (r :: [(Symbol, Schema)]) where
+  UpdateKey fn ( '(fn, a) ': tl ) s = ( '(fn, s) ': tl )
+  UpdateKey fn ( '(fs, a) ': tl ) s = ( '(fs, a) ': UpdateKey fn tl s)
 
 -- schema updates
 
 type family Build (b :: Builder) :: Schema where
-  Build ('BKey ('SchemaObject fs) fn z) = 'SchemaObject (UpdateKey '[] fn fs (Build z))
+  Build ('BKey ('SchemaObject fs) fn z) = 'SchemaObject (UpdateKey fn fs (Build z))
   Build ('BTraverse ('SchemaArray acs s) z) = 'SchemaArray acs (Build z)
   Build ('BScalar s) = s
 
@@ -76,10 +79,6 @@ type family SchemaByRevision (r :: Revision) (vd :: Versioned) :: Schema where
     Snd (ApplyMigration ('Migration r ds) s)
   SchemaByRevision r ('Versioned s (m ': ms)) =
     SchemaByRevision r ('Versioned (Snd (ApplyMigration m s)) ms)
-
--- type family Reverse (acc :: [(Revision, Schema)]) (rs :: [(Revision, Schema)]) :: [(Revision, Schema)] where
---   Reverse acc '[] = acc
---   Reverse acc (h ': tl) = Reverse (h ': acc) tl
 
 type family ElemOf (e :: k) (l :: [(a,k)]) :: Constraint where
   ElemOf e '[] = 'True ~ 'False
@@ -147,32 +146,18 @@ data instance Sing (v :: Versioned) where
     -> Sing (ms :: [Migration]) -- a bunch of migrations
     -> Sing ('Versioned s ms)
 
--- data MList ms where
---   MSing :: proxy a -> MList '[a]
---   MCons :: Dict (MigrateSchema h a) -> proxy a -> MList (h ': tl) -> MList (a ': h ': tl)
+-- type SchemaExample
+--   = 'SchemaObject
+--     '[ '("foo", 'SchemaArray '[ 'AEq 1] ( 'SchemaNumber '[ 'NGt 10 ]))
+--      , '("bar", 'SchemaOptional ( 'SchemaText '[ 'TRegex "\\w+", 'TEnum '["foo", "bar"]]))]
 
--- data MList ms where
---   MSing :: proxy a -> MList '[a]
---   MCons :: (JsonRepr h -> JsonRepr a) -> proxy a -> MList (h ': tl) -> MList (a ': h ': tl)
+-- type VS =
+--   'Versioned SchemaExample
+--     '[ 'Migration "test_revision"
+--        '[ 'Diff '[ 'PKey "foo" ] ('Update ('SchemaText '[])) ] ]
 
-type SchemaExample
-  = 'SchemaObject
-    '[ '("foo", 'SchemaArray '[ 'AEq 1] ( 'SchemaNumber '[ 'NGt 10 ]))
-     , '("bar", 'SchemaOptional ( 'SchemaText '[ 'TRegex "\\w+", 'TEnum '["foo", "bar"]]))]
-
-type VS =
-  'Versioned SchemaExample
-    '[ 'Migration "test_revision"
-       '[ 'Diff '[ 'PKey "foo" ] ('Update ('SchemaText '[])) ] ]
-
-jsonExample :: JsonRepr (TopVersion (AllVersions VS))
-jsonExample = ReprObject $
-  FieldRepr (ReprText "foo")
-    :& FieldRepr (ReprOptional (Just (ReprText "bar")))
-    :& RNil
-
-
--- tail :: [a] -> [a]
--- sTail :: Sing s -> Sing (Tail s)
--- :: (Head (Tail foo))
--- sHead (sTail foo)
+-- jsonExample :: JsonRepr (TopVersion (AllVersions VS))
+-- jsonExample = ReprObject $
+--   FieldRepr (ReprText "foo")
+--     :& FieldRepr (ReprOptional (Just (ReprText "bar")))
+--     :& RNil
