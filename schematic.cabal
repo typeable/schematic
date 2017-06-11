@@ -18,6 +18,7 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Data.Schematic
                      , Data.Schematic.Instances
+                     , Data.Schematic.Lens
                      , Data.Schematic.Migration
                      , Data.Schematic.Path
                      , Data.Schematic.Schema
@@ -52,6 +53,7 @@ library
                      , TemplateHaskell
                      , TypeApplications
                      , TypeFamilies
+                     , TypeFamilyDependencies
                      , TypeInType
                      , TypeOperators
                      , TypeSynonymInstances

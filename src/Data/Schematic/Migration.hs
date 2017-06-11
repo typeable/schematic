@@ -8,7 +8,6 @@ import Data.Schematic.Path
 import Data.Schematic.Schema
 import Data.Singletons.Prelude hiding (All)
 import Data.Singletons.TypeLits
--- import Data.Vinyl hiding (Dict)
 
 
 data Path

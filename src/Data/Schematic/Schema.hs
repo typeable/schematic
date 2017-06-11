@@ -5,26 +5,25 @@
 
 module Data.Schematic.Schema where
 
-import Control.Applicative
-import Control.Monad
-import Data.Aeson as J
-import Data.Aeson.Types as J
-import Data.HashMap.Strict as H
-import Data.Kind
-import Data.Maybe
-import Data.Schematic.Instances ()
-
-import Data.Scientific
-import Data.Singletons.Prelude.List hiding (All)
-import Data.Singletons.TH
-import Data.Singletons.TypeLits
-import Data.Text as T
-import Data.Vector as V
-import Data.Vinyl hiding (Dict)
-import Data.Vinyl.TypeLevel hiding (Nat)
-import GHC.Generics (Generic)
-import Prelude as P
-import Test.SmallCheck.Series
+import           Control.Applicative ()
+import           Control.Monad
+import           Data.Aeson as J
+import           Data.Aeson.Types as J
+import           Data.HashMap.Strict as H
+import           Data.Kind
+import           Data.Maybe
+import           Data.Schematic.Instances ()
+import           Data.Scientific
+import           Data.Singletons.Prelude.List hiding (All)
+import           Data.Singletons.TH
+import           Data.Singletons.TypeLits
+import           Data.Text as T
+import           Data.Vector as V
+import           Data.Vinyl hiding (Dict)
+import qualified Data.Vinyl.TypeLevel as V
+import           GHC.Generics (Generic)
+import           Prelude as P
+import           Test.SmallCheck.Series
 
 
 type family All (c :: k -> Constraint) (s :: [k]) :: Constraint where
@@ -137,6 +136,10 @@ data FieldRepr :: (Symbol, Schema) -> Type where
     => JsonRepr schema
     -> FieldRepr '(name, schema)
 
+-- | Forgetful Functor Ufr
+toJsonRepr :: FieldRepr '(fn, sch) -> JsonRepr sch
+toJsonRepr (FieldRepr x) = x
+
 knownFieldName
   :: forall proxy (fieldName :: Symbol) schema
   .  KnownSymbol fieldName
@@ -182,7 +185,7 @@ instance Show (JsonRepr 'SchemaNull) where show _ = "ReprNull"
 instance Show (JsonRepr s) => Show (JsonRepr ('SchemaArray acs s)) where
   show (ReprArray v) = "ReprArray " P.++ show v
 
-instance RecAll FieldRepr fs Show => Show (JsonRepr ('SchemaObject fs)) where
+instance V.RecAll FieldRepr fs Show => Show (JsonRepr ('SchemaObject fs)) where
   show (ReprObject fs) = "ReprObject " P.++ show fs
 
 instance Show (JsonRepr s) => Show (JsonRepr ('SchemaOptional s)) where
