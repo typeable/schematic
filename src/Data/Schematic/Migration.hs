@@ -80,6 +80,9 @@ type family SchemaByRevision (r :: Revision) (vd :: Versioned) :: Schema where
   SchemaByRevision r ('Versioned s (m ': ms)) =
     SchemaByRevision r ('Versioned (Snd (ApplyMigration m s)) ms)
 
+type family InitialSchema (v :: Versioned) = (s :: Schema) where
+  InitialSchema ('Versioned s ms) = s
+
 type family ElemOf (e :: k) (l :: [(a,k)]) :: Constraint where
   ElemOf e '[] = 'True ~ 'False
   ElemOf e ( '(a, e) ': es) = ()
@@ -143,18 +146,13 @@ data instance Sing (v :: Versioned) where
     -> Sing (ms :: [Migration]) -- a bunch of migrations
     -> Sing ('Versioned s ms)
 
--- type SchemaExample
---   = 'SchemaObject
---     '[ '("foo", 'SchemaArray '[ 'AEq 1] ( 'SchemaNumber '[ 'NGt 10 ]))
---      , '("bar", 'SchemaOptional ( 'SchemaText '[ 'TRegex "\\w+", 'TEnum '["foo", "bar"]]))]
+data MList :: [Schema] -> Type where
+  MNil :: (SingI s, TopLevel s) => MList '[s]
+  (:&&)
+    :: (SingI s, TopLevel s)
+    => proxy s
+    -> (JsonRepr h -> JsonRepr s)
+    -> MList (h ': tl)
+    -> MList (s ': h ': tl)
 
--- type VS =
---   'Versioned SchemaExample
---     '[ 'Migration "test_revision"
---        '[ 'Diff '[ 'PKey "foo" ] ('Update ('SchemaText '[])) ] ]
-
--- jsonExample :: JsonRepr (TopVersion (AllVersions VS))
--- jsonExample = ReprObject $
---   FieldRepr (ReprText "foo")
---     :& FieldRepr (ReprOptional (Just (ReprText "bar")))
---     :& RNil
+infixr 7 :&&

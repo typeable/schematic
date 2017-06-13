@@ -7,9 +7,12 @@ module Data.Schematic
   , module Data.Schematic.Utils
   , decodeAndValidateJson
   , parseAndValidateJson
+  , parseAndValidateJsonBy
   , parseAndValidateVersionedJson
   , parseAndValidateTopVersionJson
   , decodeAndValidateVersionedJson
+  , parseAndValidateWithMList
+  , decodeAndValidateVersionedWithMList
   , isValid
   , isDecodingError
   , isValidationError
@@ -45,6 +48,13 @@ parseAndValidateJson v =
       in case res of
         Left em  -> ValidationError em
         Right () -> Valid jsonRepr
+
+parseAndValidateJsonBy
+  :: (J.FromJSON (JsonRepr schema), TopLevel schema, SingI schema)
+  => proxy schema
+  -> J.Value
+  -> ParseResult (JsonRepr schema)
+parseAndValidateJsonBy _ = parseAndValidateJson
 
 parseAndValidateTopVersionJson
   :: forall proxy (v :: Versioned)
@@ -93,6 +103,16 @@ parseAndValidateVersionedJson
   -> ParseResult (JsonRepr (Snd (Head (AllVersions v))))
 parseAndValidateVersionedJson _ v = mparse (sing :: Sing (AllVersions v)) v
 
+parseAndValidateWithMList
+  :: MList revisions
+  -> J.Value
+  -> ParseResult (JsonRepr (Head revisions))
+parseAndValidateWithMList MNil v = parseAndValidateJson v
+parseAndValidateWithMList ((:&&) p f tl) v = case parseAndValidateJsonBy p v of
+  Valid a           -> Valid a
+  DecodingError _   -> f <$> parseAndValidateWithMList tl v
+  ValidationError _ -> f <$> parseAndValidateWithMList tl v
+
 decodeAndValidateJson
   :: forall schema
   .  (J.FromJSON (JsonRepr schema), TopLevel schema, SingI schema)
@@ -110,3 +130,16 @@ decodeAndValidateVersionedJson
 decodeAndValidateVersionedJson vp bs = case decode bs of
   Nothing -> DecodingError "malformed json"
   Just x  -> parseAndValidateVersionedJson vp x
+
+type family MapSnd (l :: [(a,k)]) = (r :: [k]) where
+  MapSnd '[] = '[]
+  MapSnd ( '(a, b) ': tl) = b ': MapSnd tl
+
+decodeAndValidateVersionedWithMList
+  :: proxy versioned
+  -> MList (MapSnd (AllVersions versioned))
+  -> BL.ByteString
+  -> ParseResult (JsonRepr (Head (MapSnd (AllVersions versioned))))
+decodeAndValidateVersionedWithMList _ mlist bs = case decode bs of
+  Nothing -> DecodingError "malformed json"
+  Just x  -> parseAndValidateWithMList mlist x

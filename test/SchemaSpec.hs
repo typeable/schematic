@@ -52,18 +52,23 @@ schemaJson2 = "{\"foo\": [3], \"bar\": null}"
 schemaJsonTopVersion :: ByteString
 schemaJsonTopVersion = "{ \"foo\": 42, \"bar\": \"bar\" }"
 
+topObject
+  :: JsonRepr
+    ('SchemaObject
+      '[ '("foo", 'SchemaNumber '[])
+       , '("bar", 'SchemaText '[])])
+topObject = ReprObject $
+  FieldRepr (ReprNumber 42)
+    :& FieldRepr (ReprText "test")
+    :& RNil
+
 instance
-     MigrateSchema
-       ('SchemaObject
-          '[ '("foo", 'SchemaArray '[ 'AEq 1] ('SchemaNumber '[ 'NGt 10 ])),
-             '("bar", 'SchemaOptional ('SchemaText '[ 'TEnum '["foo", "bar"]]))])
-       ('SchemaObject
-         '[ '("foo", 'SchemaNumber '[]), '("bar", 'SchemaText '[])])
+  MigrateSchema
+    SchemaExample
+    ('SchemaObject
+      '[ '("foo", 'SchemaNumber '[]), '("bar", 'SchemaText '[])])
   where
-  migrate _ = ReprObject $
-    FieldRepr (ReprNumber 42)
-      :& FieldRepr (ReprText "test")
-      :& RNil
+  migrate = const topObject
 
 spec :: Spec
 spec = do
@@ -83,7 +88,12 @@ spec = do
   it "validates versioned json" $ do
     decodeAndValidateVersionedJson (Proxy @VS) schemaJson
       `shouldSatisfy` isValid
-
+  it "validates with Migration List" $ do
+    decodeAndValidateVersionedWithMList
+      (Proxy @VS)
+      ((:&&) (Proxy @(SchemaByRevision "test_revision" VS)) (const topObject) MNil)
+      schemaJson
+        `shouldSatisfy` isValid
 
 main :: IO ()
 main = hspec spec
