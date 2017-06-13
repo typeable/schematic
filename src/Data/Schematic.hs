@@ -87,11 +87,11 @@ instance {-# OVERLAPPABLE #-}
     Right x -> Valid x
 
 parseAndValidateVersionedJson
-  :: forall proxy v. (SingI (Reverse (AllVersions v)), Migratable (Reverse (AllVersions v)))
+  :: forall proxy v. (SingI (AllVersions v), Migratable (AllVersions v))
   => proxy v
   -> J.Value
-  -> ParseResult (JsonRepr (Snd (Head (Reverse (AllVersions v)))))
-parseAndValidateVersionedJson _ v = mparse (sing :: Sing (Reverse (AllVersions v))) v
+  -> ParseResult (JsonRepr (Snd (Head (AllVersions v))))
+parseAndValidateVersionedJson _ v = mparse (sing :: Sing (AllVersions v)) v
 
 decodeAndValidateJson
   :: forall schema
@@ -103,10 +103,10 @@ decodeAndValidateJson bs = case decode bs of
   Just x  -> parseAndValidateJson x
 
 decodeAndValidateVersionedJson
-  :: (Migratable (Reverse (AllVersions versioned)), SingI (Reverse (AllVersions versioned)))
+  :: (Migratable (AllVersions versioned), SingI (AllVersions versioned))
   => proxy versioned
   -> BL.ByteString
-  -> ParseResult (JsonRepr (Snd (Head (Reverse (AllVersions versioned)))))
+  -> ParseResult (JsonRepr (Snd (Head (AllVersions versioned))))
 decodeAndValidateVersionedJson vp bs = case decode bs of
   Nothing -> DecodingError "malformed json"
   Just x  -> parseAndValidateVersionedJson vp x

@@ -87,7 +87,7 @@ type family ElemOf (e :: k) (l :: [(a,k)]) :: Constraint where
 
 -- | Extracts revision/schema pairs from @Versioned@ in reverse order.
 type family AllVersions (vd :: Versioned) :: [(Revision, Schema)] where
-  AllVersions ('Versioned s ms) = AllVersions' '[ '("initial", s) ] ms
+  AllVersions ('Versioned s ms) = Reverse (AllVersions' '[ '("initial", s) ] ms)
 
 type family AllVersions' (acc :: [(Revision, Schema)]) (ms :: [Migration]) = (r :: [(Revision, Schema)]) where
   AllVersions' acc '[]                       = acc
