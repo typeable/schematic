@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                schematic
-version:             0.1.1.0
+version:             0.1.2.0
 synopsis:            JSON-biased spec and validation tool
 -- description:
 license:             BSD3
@@ -17,7 +17,6 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Data.Schematic
-                     -- , Data.Schematic.Class
                      , Data.Schematic.Instances
                      , Data.Schematic.Path
                      , Data.Schematic.Schema
