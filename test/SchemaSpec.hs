@@ -8,6 +8,7 @@ import Data.Aeson
 import Data.Proxy
 import Data.Schematic
 import Data.Singletons
+import Data.Singletons.Prelude
 import Data.Vinyl
 import Test.Hspec
 import Test.Hspec.SmallCheck
@@ -16,15 +17,16 @@ import Test.SmallCheck.Series.Instances
 
 
 type SchemaExample
-  = SchemaObject
-    '[ '("foo", SchemaArray '[AEq 1] (SchemaNumber '[NGt 10]))
-     , '("bar", SchemaOptional (SchemaText '[TEnum '["foo", "bar"]]))]
+  = 'SchemaObject
+    '[ '("foo", 'SchemaArray '[AEq 1] ('SchemaNumber '[NGt 10]))
+     , '("bar", 'SchemaOptional ('SchemaText '[TEnum '["foo", "bar"]]))]
 
-type VS =
-  'Versioned SchemaExample
-    '[ 'Migration "test_revision"
-       '[ 'Diff '[ 'PKey "bar" ] ('Update ('SchemaText '[]))
-        , 'Diff '[ 'PKey "foo" ] ('Update ('SchemaNumber '[])) ] ]
+type TestMigration =
+  'Migration "test_revision"
+    '[ 'Diff '[ 'PKey "bar" ] ('Update ('SchemaText '[]))
+     , 'Diff '[ 'PKey "foo" ] ('Update ('SchemaNumber '[])) ]
+
+type VS = 'Versioned SchemaExample '[ TestMigration ]
 
 exampleTest :: JsonRepr (SchemaOptional (SchemaText '[TEq 3]))
 exampleTest = ReprOptional (Just (ReprText "lil"))
@@ -50,6 +52,19 @@ schemaJson2 = "{\"foo\": [3], \"bar\": null}"
 schemaJsonTopVersion :: ByteString
 schemaJsonTopVersion = "{ \"foo\": 42, \"bar\": \"bar\" }"
 
+instance
+     MigrateSchema
+       ('SchemaObject
+          '[ '("foo", 'SchemaArray '[ 'AEq 1] ('SchemaNumber '[ 'NGt 10 ])),
+             '("bar", 'SchemaOptional ('SchemaText '[ 'TEnum '["foo", "bar"]]))])
+       ('SchemaObject
+         '[ '("foo", 'SchemaNumber '[]), '("bar", 'SchemaText '[])])
+  where
+  migrate _ = ReprObject $
+    FieldRepr (ReprNumber 42)
+      :& FieldRepr (ReprText "test")
+      :& RNil
+
 spec :: Spec
 spec = do
   -- it "show/read JsonRepr properly" $
@@ -66,8 +81,9 @@ spec = do
     ((decodeAndValidateJson schemaJson2) :: ParseResult (JsonRepr SchemaExample))
       `shouldSatisfy` isValidationError
   it "validates versioned json" $ do
-    (decodeAndValidateVersionedJson (Proxy @VS) schemaJsonTopVersion)
+    decodeAndValidateVersionedJson (Proxy @VS) schemaJson
       `shouldSatisfy` isValid
+
 
 main :: IO ()
 main = hspec spec

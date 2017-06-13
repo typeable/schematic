@@ -92,16 +92,13 @@ type family AllVersions (vd :: Versioned) :: [(Revision, Schema)] where
 type family AllVersions' (acc :: [(Revision, Schema)]) (ms :: [Migration]) = (r :: [(Revision, Schema)]) where
   AllVersions' acc '[]                       = acc
   AllVersions' ( '(rh, sh) ': tl ) (m ': ms) =
-    AllVersions' ( ApplyMigration m sh ': tl ) ms
+    AllVersions' ( '(rh, sh) ': ApplyMigration m sh ': tl ) ms
 
 type family TopVersion (rs :: [(Revision, Schema)]) :: Schema where
   TopVersion ( '(rh, sh) ': tl) = sh
 
 class MigrateSchema (a :: Schema) (b :: Schema) where
   migrate :: JsonRepr a -> JsonRepr b
-
-instance MigrateSchema a a where
-  migrate = id
 
 data Action = AddKey Symbol Schema | Update Schema | DeleteKey Symbol
 

@@ -70,7 +70,10 @@ class Migratable (revisions :: [(Revision, Schema)]) where
     -> J.Value
     -> ParseResult (JsonRepr (Snd (Head revisions)))
 
-instance {-# OVERLAPPING #-} (TopLevel (Snd rev), SingI (Snd rev)) => Migratable '[rev] where
+instance
+  {-# OVERLAPPING #-}
+  ( TopLevel (Snd rev), SingI (Snd rev) )
+  => Migratable '[rev] where
   mparse _ = parseAndValidateJson
 
 instance {-# OVERLAPPABLE #-}
@@ -79,41 +82,16 @@ instance {-# OVERLAPPABLE #-}
   , SingI (Snd (Head revisions)))
   => Migratable revisions where
   mparse s v = case parseEither parseJSON v of
-    Left _  -> migrate <$> mparse (sTail s) v
+    Left _  ->
+      migrate <$> (mparse (sTail s) v :: ParseResult (JsonRepr (Snd (Head (Tail revisions)))))
     Right x -> Valid x
--- type family Migratable (revisions :: [(Revision, Schema)]) = (cs :: Constraint) where
---   Migratable '[rev] = (TopLevel (Snd rev), SingI (Snd rev))
---   Migratable  revisions =
---    ( Migratable (Tail revisions)
---    , MigrateSchema (Snd (Head (Tail revisions))) (Snd (Head revisions))
---    , SingI (Snd (Head revisions)))
-
--- mparseBySing
---   :: Sing schema
---   -> J.Value
---   -> ParseResult (JsonRepr (Snd (Head revisions)))
--- mparseBySing s v = undefined
-
--- mparse
---   :: Migratable revisions
---   => Sing revisions
---   -> J.Value
---   -> ParseResult (JsonRepr (Snd (Head revisions)))
--- mparse s v =
---   let
---     st = sTail s
---     sth = sSnd $ sHead st
---   SCons x SNil -> parseAndValidateJson v
---   SCons sch _   -> case parseEither parseJSON v of
---     Left _  -> migrate <$> mparse (sTail s) v
---     Right x -> Valid x
 
 parseAndValidateVersionedJson
-  :: forall proxy v. (SingI (AllVersions v), Migratable (AllVersions v))
+  :: forall proxy v. (SingI (Reverse (AllVersions v)), Migratable (Reverse (AllVersions v)))
   => proxy v
   -> J.Value
-  -> ParseResult (JsonRepr (Snd (Head (AllVersions v))))
-parseAndValidateVersionedJson _ v = mparse (sing :: Sing (AllVersions v)) v
+  -> ParseResult (JsonRepr (Snd (Head (Reverse (AllVersions v)))))
+parseAndValidateVersionedJson _ v = mparse (sing :: Sing (Reverse (AllVersions v))) v
 
 decodeAndValidateJson
   :: forall schema
@@ -125,10 +103,10 @@ decodeAndValidateJson bs = case decode bs of
   Just x  -> parseAndValidateJson x
 
 decodeAndValidateVersionedJson
-  :: (Migratable (AllVersions versioned), SingI (AllVersions versioned))
+  :: (Migratable (Reverse (AllVersions versioned)), SingI (Reverse (AllVersions versioned)))
   => proxy versioned
   -> BL.ByteString
-  -> ParseResult (JsonRepr (Snd (Head (AllVersions versioned))))
+  -> ParseResult (JsonRepr (Snd (Head (Reverse (AllVersions versioned)))))
 decodeAndValidateVersionedJson vp bs = case decode bs of
   Nothing -> DecodingError "malformed json"
   Just x  -> parseAndValidateVersionedJson vp x
