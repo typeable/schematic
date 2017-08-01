@@ -109,9 +109,9 @@ parseAndValidateWithMList
   -> ParseResult (JsonRepr (Head revisions))
 parseAndValidateWithMList MNil v = parseAndValidateJson v
 parseAndValidateWithMList ((:&&) p f tl) v = case parseAndValidateJsonBy p v of
-  Valid a           -> Valid a
-  DecodingError _   -> f <$> parseAndValidateWithMList tl v
-  ValidationError _ -> f <$> parseAndValidateWithMList tl v
+    Valid a           -> Valid a
+    DecodingError _   -> f <$> parseAndValidateWithMList tl v
+    ValidationError _ -> f <$> parseAndValidateWithMList tl v
 
 decodeAndValidateJson
   :: forall schema

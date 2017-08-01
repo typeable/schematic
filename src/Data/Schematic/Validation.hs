@@ -48,28 +48,28 @@ validateTextConstraint
 validateTextConstraint (JSONPath path) t = \case
   STEq n -> do
     let
-      nlen      = natVal n
+      nlen      = withKnownNat n $ natVal n
       predicate = nlen == (fromIntegral $ T.length t)
       errMsg    = "length of " <> path <> " should be == " <> T.pack (show nlen)
       warn      = vWarning $ mmSingleton path (pure errMsg)
     unless predicate warn
   STLe n -> do
     let
-      nlen      = natVal n
+      nlen      = withKnownNat n $ natVal n
       predicate = nlen <= (fromIntegral $ T.length t)
       errMsg    = "length of " <> path <> " should be <= " <> T.pack (show nlen)
       warn      = vWarning $ mmSingleton path (pure errMsg)
     unless predicate warn
   STGt n -> do
     let
-      nlen      = natVal n
+      nlen      = withKnownNat n $ natVal n
       predicate = nlen > (fromIntegral $ T.length t)
       errMsg    = "length of " <> path <> " should be > " <> T.pack (show nlen)
       warn      = vWarning $ mmSingleton path (pure errMsg)
     unless predicate warn
   STRegex r -> do
     let
-      regex     = symbolVal r
+      regex     = withKnownSymbol r $ symbolVal r
       predicate = maybe False (const True) $ matchRegex (mkRegex regex) (T.unpack t)
       errMsg    = path <> " must match " <> T.pack (show regex)
       warn      = vWarning $ mmSingleton path (pure errMsg)
@@ -91,21 +91,21 @@ validateNumberConstraint
 validateNumberConstraint (JSONPath path) num = \case
   SNEq n -> do
     let
-      nlen      = natVal n
+      nlen      = withKnownNat n $ natVal n
       predicate = fromIntegral nlen == num
       errMsg    = path <> " should be == " <> T.pack (show nlen)
       warn      = vWarning $ mmSingleton path (pure errMsg)
     unless predicate warn
   SNGt n -> do
     let
-      nlen      = natVal n
+      nlen      = withKnownNat n $ natVal n
       predicate = num > fromIntegral nlen
       errMsg    = path <> " should be > " <> T.pack (show nlen)
       warn      = vWarning $ mmSingleton path (pure errMsg)
     unless predicate warn
   SNLe n -> do
     let
-      nlen      = natVal n
+      nlen      = withKnownNat n $ natVal n
       predicate = fromIntegral nlen <= num
       errMsg    = path <> " should be <= " <> T.pack (show nlen)
       warn      = vWarning $ mmSingleton path (pure errMsg)
@@ -119,7 +119,7 @@ validateArrayConstraint
 validateArrayConstraint (JSONPath path) v = \case
   SAEq n -> do
     let
-      nlen      = natVal n
+      nlen      = withKnownNat n $ natVal n
       predicate = nlen == fromIntegral (V.length v)
       errMsg    = "length of " <> path <> " should be == " <> T.pack (show nlen)
       warn      = vWarning $ mmSingleton path (pure errMsg)

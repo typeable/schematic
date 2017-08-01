@@ -16,7 +16,7 @@ data Path
   | PTraverse   -- traverse into the array
 
 data instance Sing (p :: Path) where
-  SPKey :: KnownSymbol s => Sing s -> Sing ('PKey s)
+  SPKey :: Sing s -> Sing ('PKey s)
   SPTraverse :: Sing 'PTraverse
 
 instance KnownSymbol s => SingI ('PKey s) where
@@ -107,12 +107,11 @@ data Action = AddKey Symbol Schema | Update Schema | DeleteKey Symbol
 
 data instance Sing (a :: Action) where
   SAddKey
-    :: (SingI n, SingI s)
-    => Sing n
+    :: Sing n
     -> Sing s
     -> Sing ('AddKey n s)
-  SUpdate :: (SingI s) => Sing s -> Sing ('Update s)
-  SDeleteKey :: KnownSymbol s => Sing s -> Sing ('DeleteKey s)
+  SUpdate :: Sing s -> Sing ('Update s)
+  SDeleteKey :: Sing s -> Sing ('DeleteKey s)
 
 -- | User-supplied atomic difference between schemas.
 -- Migrations can consists of many differences.
@@ -120,8 +119,7 @@ data Diff = Diff [Path] Action
 
 data instance Sing (diff :: Diff) where
   SDiff
-    :: (SingI jp, SingI a)
-    => Sing (jp :: [Path])
+    :: Sing (jp :: [Path])
     -> Sing (a :: Action)
     -> Sing ('Diff jp a)
 
@@ -132,8 +130,7 @@ data Migration = Migration Revision [Diff]
 
 data instance Sing (m :: Migration) where
   SMigration
-    :: (KnownSymbol r, SingI ds)
-    => Sing r
+    :: Sing r
     -> Sing ds
     -> Sing ('Migration r ds)
 
@@ -141,15 +138,14 @@ data Versioned = Versioned Schema [Migration]
 
 data instance Sing (v :: Versioned) where
   SVersioned
-    :: (SingI s, SingI ms)
-    => Sing (s :: Schema)  -- base version
+    :: Sing (s :: Schema)  -- base version
     -> Sing (ms :: [Migration]) -- a bunch of migrations
     -> Sing ('Versioned s ms)
 
 data MList :: [Schema] -> Type where
   MNil :: (SingI s, TopLevel s) => MList '[s]
   (:&&)
-    :: (SingI s, TopLevel s)
+    :: (TopLevel s, SingI s)
     => proxy s
     -> (JsonRepr h -> JsonRepr s)
     -> MList (h ': tl)

@@ -46,11 +46,11 @@ data TextConstraint
   deriving (Generic)
 
 data instance Sing (tc :: TextConstraint) where
-  STEq :: (KnownNat n) => Sing n -> Sing ('TEq n)
-  STLe :: (KnownNat n) => Sing n -> Sing ('TLe n)
-  STGt :: (KnownNat n) => Sing n -> Sing ('TGt n)
-  STRegex :: (KnownSymbol s, SingI s) => Sing s -> Sing ('TRegex s)
-  STEnum :: (All KnownSymbol ss, SingI ss) => Sing ss -> Sing ('TEnum ss)
+  STEq :: Sing n -> Sing ('TEq n)
+  STLe :: Sing n -> Sing ('TLe n)
+  STGt :: Sing n -> Sing ('TGt n)
+  STRegex :: Sing s -> Sing ('TRegex s)
+  STEnum :: All KnownSymbol ss => Sing ss -> Sing ('TEnum ss)
 
 instance (KnownNat n) => SingI ('TEq n) where sing = STEq sing
 instance (KnownNat n) => SingI ('TGt n) where sing = STGt sing
@@ -71,9 +71,9 @@ data NumberConstraint
   deriving (Generic)
 
 data instance Sing (nc :: NumberConstraint) where
-  SNEq :: KnownNat n => Sing n -> Sing ('NEq n)
-  SNGt :: KnownNat n => Sing n -> Sing ('NGt n)
-  SNLe :: KnownNat n => Sing n -> Sing ('NLe n)
+  SNEq :: Sing n -> Sing ('NEq n)
+  SNGt :: Sing n -> Sing ('NGt n)
+  SNLe :: Sing n -> Sing ('NLe n)
 
 instance KnownNat n => SingI ('NEq n) where sing = SNEq sing
 instance KnownNat n => SingI ('NGt n) where sing = SNGt sing
@@ -88,7 +88,7 @@ data ArrayConstraint
   deriving (Generic)
 
 data instance Sing (ac :: ArrayConstraint) where
-  SAEq :: KnownNat n => Sing n -> Sing ('AEq n)
+  SAEq :: Sing n -> Sing ('AEq n)
 
 instance KnownNat n => SingI ('AEq n) where sing = SAEq sing
 
@@ -104,11 +104,11 @@ data Schema
   deriving (Generic)
 
 data instance Sing (schema :: Schema) where
-  SSchemaText :: SingI tcs => Sing tcs -> Sing ('SchemaText tcs)
-  SSchemaNumber :: SingI ncs => Sing ncs -> Sing ('SchemaNumber ncs)
-  SSchemaArray :: (SingI acs, SingI schema) => Sing acs -> Sing schema -> Sing ('SchemaArray acs schema)
-  SSchemaObject :: SingI fields => Sing fields -> Sing ('SchemaObject fields)
-  SSchemaOptional :: SingI s => Sing s -> Sing ('SchemaOptional s)
+  SSchemaText :: Sing tcs -> Sing ('SchemaText tcs)
+  SSchemaNumber :: Sing ncs -> Sing ('SchemaNumber ncs)
+  SSchemaArray :: Sing acs -> Sing schema -> Sing ('SchemaArray acs schema)
+  SSchemaObject :: Sing fields -> Sing ('SchemaObject fields)
+  SSchemaOptional :: Sing s -> Sing ('SchemaOptional s)
   SSchemaNull :: Sing 'SchemaNull
 
 instance SingI sl => SingI ('SchemaText sl) where
@@ -238,37 +238,38 @@ fromOptional _ = parseJSON
 
 instance SingI schema => J.FromJSON (JsonRepr schema) where
   parseJSON value = case sing :: Sing schema of
-    SSchemaText _        -> withText "String" (pure . ReprText) value
-    SSchemaNumber _      -> withScientific "Number" (pure . ReprNumber) value
-    SSchemaNull          -> case value of
+    SSchemaText _          -> withText "String" (pure . ReprText) value
+    SSchemaNumber _        -> withScientific "Number" (pure . ReprNumber) value
+    SSchemaNull            -> case value of
       J.Null -> pure ReprNull
       _      -> typeMismatch "Null" value
-    so@(SSchemaOptional _) -> ReprOptional <$> fromOptional so value
-    SSchemaArray _ _     -> withArray "Array" (fmap ReprArray . traverse parseJSON) value
-    SSchemaObject fs     -> do
+    so@(SSchemaOptional s) -> withSingI s $ ReprOptional <$> fromOptional so value
+    SSchemaArray sa sb     -> withSingI sa $ withSingI sb
+      $ withArray "Array" (fmap ReprArray . traverse parseJSON) value
+    SSchemaObject fs       -> do
       let
         demoteFields :: SList s -> H.HashMap Text J.Value -> Parser (Rec FieldRepr s)
         demoteFields SNil _ = pure RNil
         demoteFields (SCons (STuple2 (n :: Sing fn) s) tl) h = withKnownSymbol n $ do
           let fieldName = T.pack $ symbolVal (Proxy @fn)
           fieldRepr <- case s of
-            SSchemaText _ -> case H.lookup fieldName h of
-              Just v  -> FieldRepr <$> parseJSON v
+            SSchemaText so -> case H.lookup fieldName h of
+              Just v  -> withSingI so $ FieldRepr <$> parseJSON v
               Nothing -> fail "schematext"
-            SSchemaNumber _ -> case H.lookup fieldName h of
-              Just v  -> FieldRepr <$> parseJSON v
+            SSchemaNumber so -> case H.lookup fieldName h of
+              Just v  -> withSingI so $ FieldRepr <$> parseJSON v
               Nothing -> fail "schemanumber"
             SSchemaNull -> case H.lookup fieldName h of
               Just v  -> FieldRepr <$> parseJSON v
               Nothing -> fail "schemanull"
-            SSchemaArray _ _ -> case H.lookup fieldName h of
-              Just v  -> FieldRepr <$> parseJSON v
+            SSchemaArray sa sb -> case H.lookup fieldName h of
+              Just v  -> withSingI sa $ withSingI sb $ FieldRepr <$> parseJSON v
               Nothing -> fail "schemaarray"
-            SSchemaObject _ -> case H.lookup fieldName h of
-              Just v  -> FieldRepr <$> parseJSON v
+            SSchemaObject so -> case H.lookup fieldName h of
+              Just v  -> withSingI so $ FieldRepr <$> parseJSON v
               Nothing -> fail "schemaobject"
-            SSchemaOptional _ -> case H.lookup fieldName h of
-              Just v -> FieldRepr <$> parseJSON v
+            SSchemaOptional so -> case H.lookup fieldName h of
+              Just v -> withSingI so $ FieldRepr <$> parseJSON v
               Nothing -> fail "schemaoptional"
           (fieldRepr :&) <$> demoteFields tl h
       ReprObject <$> withObject "Object" (demoteFields fs) value
