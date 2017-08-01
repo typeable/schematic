@@ -13,7 +13,6 @@ The goal of the library is to provide a type-safe transport layer for serializin
 
 ## TODO
 
-* Making a migration system more usable. It should allow it to be used as a json safecopy solution minus the boilerplate.
 * Describing versioned http endpoints
 * Schema pretty-printing
 * More validators
