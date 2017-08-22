@@ -114,6 +114,7 @@ test-suite spec
                      , hspec-core
                      , hspec-discover
                      , hspec-smallcheck
+                     , lens
                      , regex-compat
                      , schematic
                      , smallcheck
@@ -125,3 +126,4 @@ test-suite spec
                      , validationt >= 0.1.0.1
                      , vinyl
   other-modules:       SchemaSpec
+                     , LensSpec

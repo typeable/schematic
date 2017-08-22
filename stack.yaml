@@ -1,5 +1,4 @@
-resolver: lts-8.12
-#resolver: ghc-8.0.2
+resolver: lts-9.01
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
