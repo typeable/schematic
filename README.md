@@ -110,3 +110,24 @@ It's possible to decode the latest version like this:
 ```
 decodeAndValidateJson schemaJsonTopVersion :: ParseResult (JsonRepr (TopVersion (AllVersions VS)))
 ```
+
+## Lens-compatibility
+
+It's possible to use `flens` to construct a field lens for a typed object in schematic. Let's suppose you have a schema like this:
+
+```
+type ArraySchema = 'SchemaArray '[AEq 1] ('SchemaNumber '[NGt 10])
+
+type ArrayField = '("foo", ArraySchema)
+
+type FieldsSchema =
+  '[ ArrayField, '("bar", 'SchemaOptional ('SchemaText '[TEnum '["foo", "bar"]]))]
+
+type SchemaExample = 'SchemaObject FieldsSchema
+
+```
+
+There are two ways of working with named fields in the objects:
+
+* Using the `fget` and `fset` functions: `fget fooProxy (fput newFooVal objectData) == newFooVal`
+* Using the lens library: `set (flens (Proxy @"foo")) newFooVal objectData ^. flens (Proxy @"foo") == newFooVal`
