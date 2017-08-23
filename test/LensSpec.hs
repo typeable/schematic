@@ -33,14 +33,20 @@ exampleData = ReprObject objectData
 
 spec :: Spec
 spec = do
+  let
+    newFooVal = FieldRepr $ ReprArray [ReprNumber 15]
+    fooProxy  = Proxy @"foo"
   it "gets the field from an object" $ do
-    fget (Proxy :: Proxy "foo") objectData == arrayField
-  -- it "sets the object field" $ do
-  --   fset (FieldRepr :: FieldRepr '("foo", ArrayField))
+    fget fooProxy objectData == arrayField
+  it "sets the object field" $ do
+    fget fooProxy (fput newFooVal objectData) == newFooVal
 
   describe "(using lens library) " $ do
     it "get the field from an object" $ do
-      objectData ^. (flens (Proxy :: Proxy "foo")) == arrayField
+      objectData ^. flens (Proxy @"foo") == arrayField
+    it "sets the object field" $ do
+      set (flens (Proxy @"foo")) newFooVal objectData ^. flens (Proxy @"foo")
+        == newFooVal
 
 main :: IO ()
 main = hspec spec
