@@ -5,25 +5,24 @@
 
 module Data.Schematic.Schema where
 
-import           Control.Applicative ()
-import           Control.Monad
-import           Data.Aeson as J
-import           Data.Aeson.Types as J
-import           Data.HashMap.Strict as H
-import           Data.Kind
-import           Data.Maybe
-import           Data.Schematic.Instances ()
-import           Data.Scientific
-import           Data.Singletons.Prelude.List hiding (All)
-import           Data.Singletons.TH
-import           Data.Singletons.TypeLits
-import           Data.Text as T
-import           Data.Vector as V
-import           Data.Vinyl hiding (Dict)
-import qualified Data.Vinyl.TypeLevel as V
-import           GHC.Generics (Generic)
-import           Prelude as P
-import           Test.SmallCheck.Series
+import Control.Applicative ()
+import Control.Monad
+import Data.Aeson as J
+import Data.Aeson.Types as J
+import Data.HashMap.Strict as H
+import Data.Kind
+import Data.Maybe
+import Data.Schematic.Instances ()
+import Data.Scientific
+import Data.Singletons.Prelude.List hiding (All)
+import Data.Singletons.TH
+import Data.Singletons.TypeLits
+import Data.Text as T
+import Data.Vector as V
+import GHC.Generics (Generic)
+import Prelude as P
+import SuperRecord
+import Test.SmallCheck.Series
 
 
 type family All (c :: k -> Constraint) (s :: [k]) :: Constraint where
@@ -166,12 +165,18 @@ instance
   => Serial m (FieldRepr '(name, schema)) where
   series = FieldRepr <$> series
 
+type family Fields (ts :: [u]) :: [] where
+   Fields '[]       = '[]
+   Fields (t ': ts) = (FieldRepr t ': Fields ts)
+
+type JObject ts = Rec (Fields ts)
+
 data JsonRepr :: Schema -> Type where
   ReprText :: Text -> JsonRepr ('SchemaText cs)
   ReprNumber :: Scientific -> JsonRepr ('SchemaNumber cs)
   ReprNull :: JsonRepr 'SchemaNull
   ReprArray :: V.Vector (JsonRepr s) -> JsonRepr ('SchemaArray cs s)
-  ReprObject :: Rec FieldRepr fs -> JsonRepr ('SchemaObject fs)
+  ReprObject :: JObject fs -> JsonRepr ('SchemaObject fs)
   ReprOptional :: Maybe (JsonRepr s) -> JsonRepr ('SchemaOptional s)
 
 instance Show (JsonRepr ('SchemaText cs)) where
@@ -185,7 +190,12 @@ instance Show (JsonRepr 'SchemaNull) where show _ = "ReprNull"
 instance Show (JsonRepr s) => Show (JsonRepr ('SchemaArray acs s)) where
   show (ReprArray v) = "ReprArray " P.++ show v
 
-instance V.RecAll FieldRepr fs Show => Show (JsonRepr ('SchemaObject fs)) where
+-- There's a PR in the superrecord library, remove it if gets merged.
+type family RecAll (c :: u -> Constraint) (rs :: [u]) :: Constraint where
+  RecAll c '[] = ()
+  RecAll c (r ': rs) = (c r, RecAll c rs)
+
+instance RecAll Show fs => Show (JsonRepr ('SchemaObject fs)) where
   show (ReprObject fs) = "ReprObject " P.++ show fs
 
 instance Show (JsonRepr s) => Show (JsonRepr ('SchemaOptional s)) where
@@ -210,11 +220,11 @@ instance (Serial m (JsonRepr s))
   => Serial m (JsonRepr ('SchemaOptional s)) where
   series = cons1 ReprOptional
 
-instance (Monad m, Serial m (Rec FieldRepr fs))
+instance (Monad m, Serial m (JObject fs))
   => Serial m (JsonRepr ('SchemaObject fs)) where
   series = cons1 ReprObject
 
-instance Eq (Rec FieldRepr fs) => Eq (JsonRepr ('SchemaObject fs)) where
+instance Eq (JObject fs) => Eq (JsonRepr ('SchemaObject fs)) where
   ReprObject a == ReprObject b = a == b
 
 instance Eq (JsonRepr ('SchemaText cs)) where
@@ -251,7 +261,7 @@ instance SingI schema => J.FromJSON (JsonRepr schema) where
       $ withArray "Array" (fmap ReprArray . traverse parseJSON) value
     SSchemaObject fs       -> do
       let
-        demoteFields :: SList s -> H.HashMap Text J.Value -> Parser (Rec FieldRepr s)
+        demoteFields :: SList s -> H.HashMap Text J.Value -> Parser (JObject s)
         demoteFields SNil _ = pure RNil
         demoteFields (SCons (STuple2 (n :: Sing fn) s) tl) h = withKnownSymbol n $ do
           let fieldName = T.pack $ symbolVal (Proxy @fn)
@@ -287,11 +297,12 @@ instance J.ToJSON (JsonRepr a) where
   toJSON (ReprArray v)    = J.Array $ toJSON <$> v
   toJSON (ReprObject r)   = J.Object . H.fromList . fold $ r
     where
-      extract :: forall name s . (KnownSymbol name)
+      extract
+        :: forall name s . (KnownSymbol name)
         => FieldRepr '(name, s)
         -> (Text, Value)
       extract (FieldRepr s) = (T.pack $ symbolVal $ Proxy @name, toJSON s)
-      fold :: Rec FieldRepr fs -> [(Text, J.Value)]
+      fold :: JObject fs -> [(Text, J.Value)]
       fold = \case
         RNil                   -> []
         fr@(FieldRepr _) :& tl -> (extract fr) : fold tl
