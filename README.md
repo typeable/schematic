@@ -6,10 +6,10 @@
 
 The goal of the library is to provide a type-safe transport layer for serializing and validating JSON. It can be thought of as a subset of [json-schema](http://json-schema.org), which is basically a specification of a JSON document. The other goal is getting as much as possible from this specification for free. Right now the following bits are prototyped:
 
-* All the instantiations of transport types are structurally follow the schema provided by user
-* Serializers are generic, so they follow from the type-level schema and the're supposed to have roundtrip property by implementation.
+* All of the instantiations of the transport types structurally follow the schema provided by user
+* Serializers are generic, so they follow from the type-level schema and the're supposed to have a roundtrip property by an implementation.
 * Runtime value validators are generated from the schema. Validation errors are reported as a pairs of a json-path to the element and an error message.
-* There are migrations. It's possible to describe a series of migrations to the schema and have all the machinery deserialize a user specified version of the schema if there's a few versions.
+* There are migrations. It's possible to describe a series of migrations to the schema and have all the necessary machinery to deserialize a user specified version of the schema if there's a few versions.
 
 ## TODO
 
