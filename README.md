@@ -37,13 +37,13 @@ type SchemaExample
      , '("bar", SchemaOptional (SchemaText '[TEnum '["foo", "bar"]]))]
 ```
 
-* This schema says that's structurally it's a JSON object which has two field:
-  * field "foo" contains an of numeric values
-  * field "bar" contains an optional textual value
-* It also allows you to validate the JSON:
-  * an array in "foo" must contain exactly one element
+* This schema says that's structurally it's a JSON object which has two fields:
+  * field "foo" contains an array of numeric values
+  * field "bar" contains an optional text value
+* It also allows you to validate JSON values itself:
+  * an array in "foo" contains exactly one element
   * that element must be strictly greater than 10
-  * value of bar must be either "foo" or "bar" if presented
+  * value of "bar" field must be either "foo" or "bar" if presented
 
 
 This one is valid for example
@@ -67,11 +67,12 @@ decodeAndValidateJson schemaJson :: ParseResult (JsonRepr SchemaExample)
 ```
 
 `ParseResult` type encodes three possible situations:
-* json is structurally consistent with schema and runtime validations passed
-* json source is malformed or doesn't correspond to schema structurally
-* some of the runtime validations failed, but it's structurally correct
+* json is structurally consistent with a schema and runtime validations pass
+* json source is malformed or doesn't correspond to a schema structurally
+* some of the runtime validations have failed, but it's structurally correct
+  overall
 
-I t's build a transport layer representation of that data that can be tranversed and transformed to whatever internal types user has. Transport layer represetation looks like this. Type parameter is the schema itself.
+It implies a transport layer representation of that data that can be traversed and transformed to whatever internal types user has. It's called `JsonRepr`. Type parameter is the schema itself.
 
 
 ```
@@ -84,9 +85,9 @@ jsonExample = ReprObject $
 
 ## Migrations
 
-It's possible to represent schema changes as a migration, which describes a series of json-path/change pairs. Migrations can be applied in succession.
+It's possible to represent schema changes as a series of migrations, which describes a series of json-path/change pairs. Migrations can be applied in succession.
 
-This piece of code will apply a migration to the schema, then decodes and validates the latest version.
+This piece of code will apply a migration to the schema, decode and validate the latest version.
 
 ```
 type SchemaExample
