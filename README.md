@@ -9,7 +9,7 @@ The goal of the library is to provide a type-safe transport layer for serializin
 * All of the instantiations of the transport types structurally follow the schema provided by user
 * Serializers are generic, so they follow from the type-level schema and the're supposed to have a roundtrip property by an implementation.
 * Runtime value validators are generated from the schema. Validation errors are reported as a pairs of a json-path to the element and an error message.
-* There are migrations. It's possible to describe a series of migrations to the schema and have all the necessary machinery to deserialize a user specified version of the schema if there's a few versions.
+* There are migrations. It's possible to describe a series of migrations to the schema and have all the necessary machinery to deserialize a user specified version of the schema if there are multiple versions available.
 
 ## TODO
 
