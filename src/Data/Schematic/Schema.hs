@@ -38,49 +38,65 @@ type family CRepr (s :: Schema) :: Type where
 
 data TextConstraint
   = TEq Nat
+  | TLt Nat
   | TLe Nat
   | TGt Nat
+  | TGe Nat
   | TRegex Symbol
   | TEnum [Symbol]
   deriving (Generic)
 
 data instance Sing (tc :: TextConstraint) where
   STEq :: Sing n -> Sing ('TEq n)
+  STLt :: Sing n -> Sing ('TLt n)
   STLe :: Sing n -> Sing ('TLe n)
   STGt :: Sing n -> Sing ('TGt n)
+  STGe :: Sing n -> Sing ('TGe n)
   STRegex :: Sing s -> Sing ('TRegex s)
   STEnum :: All KnownSymbol ss => Sing ss -> Sing ('TEnum ss)
 
 instance (KnownNat n) => SingI ('TEq n) where sing = STEq sing
 instance (KnownNat n) => SingI ('TGt n) where sing = STGt sing
+instance (KnownNat n) => SingI ('TGe n) where sing = STGe sing
+instance (KnownNat n) => SingI ('TLt n) where sing = STLt sing
 instance (KnownNat n) => SingI ('TLe n) where sing = STLe sing
 instance (KnownSymbol s, SingI s) => SingI ('TRegex s) where sing = STRegex sing
 instance (All KnownSymbol ss, SingI ss) => SingI ('TEnum ss) where sing = STEnum sing
 
 instance Eq (Sing ('TEq n)) where _ == _ = True
+instance Eq (Sing ('TLt n)) where _ == _ = True
 instance Eq (Sing ('TLe n)) where _ == _ = True
 instance Eq (Sing ('TGt n)) where _ == _ = True
+instance Eq (Sing ('TGe n)) where _ == _ = True
 instance Eq (Sing ('TRegex t)) where _ == _ = True
 instance Eq (Sing ('TEnum ss)) where _ == _ = True
 
 data NumberConstraint
   = NLe Nat
+  | NLt Nat
   | NGt Nat
+  | NGe Nat
   | NEq Nat
   deriving (Generic)
 
 data instance Sing (nc :: NumberConstraint) where
   SNEq :: Sing n -> Sing ('NEq n)
   SNGt :: Sing n -> Sing ('NGt n)
+  SNGe :: Sing n -> Sing ('NGe n)
+  SNLt :: Sing n -> Sing ('NLt n)
   SNLe :: Sing n -> Sing ('NLe n)
 
 instance KnownNat n => SingI ('NEq n) where sing = SNEq sing
 instance KnownNat n => SingI ('NGt n) where sing = SNGt sing
+instance KnownNat n => SingI ('NGe n) where sing = SNGe sing
+instance KnownNat n => SingI ('NLt n) where sing = SNLt sing
 instance KnownNat n => SingI ('NLe n) where sing = SNLe sing
 
 instance Eq (Sing ('NEq n)) where _ == _ = True
+instance Eq (Sing ('NLt n)) where _ == _ = True
 instance Eq (Sing ('NLe n)) where _ == _ = True
 instance Eq (Sing ('NGt n)) where _ == _ = True
+instance Eq (Sing ('NGe n)) where _ == _ = True
 
 data ArrayConstraint
   = AEq Nat

@@ -53,6 +53,13 @@ validateTextConstraint (JSONPath path) t = \case
       errMsg    = "length of " <> path <> " should be == " <> T.pack (show nlen)
       warn      = vWarning $ mmSingleton path (pure errMsg)
     unless predicate warn
+  STLt n -> do
+    let
+      nlen      = withKnownNat n $ natVal n
+      predicate = nlen < (fromIntegral $ T.length t)
+      errMsg    = "length of " <> path <> " should be < " <> T.pack (show nlen)
+      warn      = vWarning $ mmSingleton path (pure errMsg)
+    unless predicate warn
   STLe n -> do
     let
       nlen      = withKnownNat n $ natVal n
@@ -65,6 +72,13 @@ validateTextConstraint (JSONPath path) t = \case
       nlen      = withKnownNat n $ natVal n
       predicate = nlen > (fromIntegral $ T.length t)
       errMsg    = "length of " <> path <> " should be > " <> T.pack (show nlen)
+      warn      = vWarning $ mmSingleton path (pure errMsg)
+    unless predicate warn
+  STGe n -> do
+    let
+      nlen      = withKnownNat n $ natVal n
+      predicate = nlen >= (fromIntegral $ T.length t)
+      errMsg    = "length of " <> path <> " should be >= " <> T.pack (show nlen)
       warn      = vWarning $ mmSingleton path (pure errMsg)
     unless predicate warn
   STRegex r -> do
@@ -101,6 +115,20 @@ validateNumberConstraint (JSONPath path) num = \case
       nlen      = withKnownNat n $ natVal n
       predicate = num > fromIntegral nlen
       errMsg    = path <> " should be > " <> T.pack (show nlen)
+      warn      = vWarning $ mmSingleton path (pure errMsg)
+    unless predicate warn
+  SNGe n -> do
+    let
+      nlen      = withKnownNat n $ natVal n
+      predicate = num >= fromIntegral nlen
+      errMsg    = path <> " should be >= " <> T.pack (show nlen)
+      warn      = vWarning $ mmSingleton path (pure errMsg)
+    unless predicate warn
+  SNLt n -> do
+    let
+      nlen      = withKnownNat n $ natVal n
+      predicate = fromIntegral nlen < num
+      errMsg    = path <> " should be < " <> T.pack (show nlen)
       warn      = vWarning $ mmSingleton path (pure errMsg)
     unless predicate warn
   SNLe n -> do
