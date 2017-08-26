@@ -13,10 +13,10 @@ The goal of the library is to provide a type-safe transport layer for serializin
 
 ## TODO
 
-* Describing versioned http endpoints
 * Schema pretty-printing
 * More validators
 * Overall user friendliness
+* Versioned http endpoints
 
 Be aware that library is experimental and subject to change a lot. The current state can be viewed as a prototype.
 
