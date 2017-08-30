@@ -10,13 +10,7 @@ The goal of the library is to provide a type-safe transport layer for serializin
 * Serializers are generic, so they follow from the type-level schema and the're supposed to have a roundtrip property by an implementation.
 * Runtime value validators are generated from the schema. Validation errors are reported as a pairs of a json-path to the element and an error message.
 * There are migrations. It's possible to describe a series of migrations to the schema and have all the necessary machinery to deserialize a user specified version of the schema if there are multiple versions available.
-
-## TODO
-
-* Schema pretty-printing
-* More validators
-* Overall user friendliness
-* Versioned http endpoints
+* Schematic schemas can be exported to [json-schema](http://json-schema.org)
 
 Be aware that library is experimental and subject to change a lot. The current state can be viewed as a prototype.
 
@@ -132,3 +126,9 @@ There are two ways of working with named fields in the objects:
 
 * Using the `fget` and `fset` functions: `fget fooProxy (fput newFooVal objectData) == newFooVal`
 * Using the lens library: `set (flens (Proxy @"foo")) newFooVal objectData ^. flens (Proxy @"foo") == newFooVal`
+
+
+## TODO
+
+* Overall user friendliness
+* Versioned http endpoints
