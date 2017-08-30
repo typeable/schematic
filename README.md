@@ -127,6 +127,8 @@ There are two ways of working with named fields in the objects:
 * Using the `fget` and `fset` functions: `fget fooProxy (fput newFooVal objectData) == newFooVal`
 * Using the lens library: `set (flens (Proxy @"foo")) newFooVal objectData ^. flens (Proxy @"foo") == newFooVal`
 
+## Export to json-schema (draft 4)
+
 
 ## TODO
 

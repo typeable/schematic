@@ -96,6 +96,7 @@ test-suite spec
                      , GADTs
                      , KindSignatures
                      , InstanceSigs
+                     , LambdaCase
                      , MultiParamTypeClasses
                      , OverloadedLists
                      , OverloadedStrings
@@ -125,7 +126,7 @@ test-suite spec
                      , schematic
                      , smallcheck
                      , smallcheck-series
-                     , singletons >= 2.3.1
+                     , singletons
                      , tagged
                      , text
                      , unordered-containers

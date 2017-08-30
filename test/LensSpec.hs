@@ -305,16 +305,16 @@ spec = do
     newFooVal = FieldRepr $ ReprArray [ReprNumber 15]
     fooProxy  = Proxy @"foo"
   it "gets the field from an object" $ do
-    fget fooProxy objectData == arrayField
+    fget fooProxy objectData `shouldBe` arrayField
   it "sets the object field" $ do
-    fget fooProxy (fput newFooVal objectData) == newFooVal
+    fget fooProxy (fput newFooVal objectData) `shouldBe` newFooVal
 
   describe "(using lens library) " $ do
     it "get the field from an object" $ do
-      objectData ^. flens (Proxy @"foo") == arrayField
+      objectData ^. flens (Proxy @"foo") `shouldBe` arrayField
     it "sets the object field" $ do
       set (flens (Proxy @"foo")) newFooVal objectData ^. flens (Proxy @"foo")
-        == newFooVal
+        `shouldBe` newFooVal
 
 main :: IO ()
 main = hspec spec
