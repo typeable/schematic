@@ -4,7 +4,7 @@
 
 module Data.Schematic.JsonSchema
   ( toJsonSchema
-  , toJsonSchema
+  , toJsonSchema'
   ) where
 
 import Control.Monad.State.Strict
