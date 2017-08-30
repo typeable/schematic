@@ -8,12 +8,12 @@ import Data.Vinyl
 import Test.Hspec
 
 
-type ArraySchema = 'SchemaArray '[AEq 1] ('SchemaNumber '[NGt 10])
+type ArraySchema = 'SchemaArray '[ 'AEq 1] ('SchemaNumber '[ 'NGt 10])
 
 type ArrayField = '("foo", ArraySchema)
 
 type FieldsSchema =
-  '[ ArrayField, '("bar", 'SchemaOptional ('SchemaText '[TEnum '["foo", "bar"]]))]
+  '[ ArrayField, '("bar", 'SchemaOptional ('SchemaText '[ 'TEnum '["foo", "bar"]]))]
 
 type SchemaExample = 'SchemaObject FieldsSchema
 
@@ -164,8 +164,8 @@ type BigRecord = Rec FieldRepr
   ,  '("f130", 'SchemaNumber '[])
    ]
 
-bigRecord :: BigRecord
-bigRecord =
+_bigRecord :: BigRecord
+_bigRecord =
      FieldRepr (ReprNumber 1)
   :& FieldRepr (ReprNumber 2)
   :& FieldRepr (ReprNumber 3)
@@ -297,7 +297,6 @@ bigRecord =
   :& FieldRepr (ReprNumber 129)
   :& FieldRepr (ReprNumber 130)
   :& RNil
-
 
 spec :: Spec
 spec = do

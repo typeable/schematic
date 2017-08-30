@@ -2,24 +2,18 @@
 
 module SchemaSpec (spec, main) where
 
-import Control.Monad
 import Data.ByteString.Lazy
 import Data.Aeson
 import Data.Proxy
 import Data.Schematic
-import Data.Singletons
-import Data.Singletons.Prelude
 import Data.Vinyl
 import Test.Hspec
-import Test.Hspec.SmallCheck
-import Test.SmallCheck
-import Test.SmallCheck.Series.Instances
 
 
 type SchemaExample
   = 'SchemaObject
-    '[ '("foo", 'SchemaArray '[AEq 1] ('SchemaNumber '[NGt 10]))
-     , '("bar", 'SchemaOptional ('SchemaText '[TEnum '["foo", "bar"]]))]
+    '[ '("foo", 'SchemaArray '[ 'AEq 1] ('SchemaNumber '[ 'NGt 10]))
+     , '("bar", 'SchemaOptional ('SchemaText '[ 'TEnum '["foo", "bar"]]))]
 
 type TestMigration =
   'Migration "test_revision"
@@ -27,15 +21,6 @@ type TestMigration =
      , 'Diff '[ 'PKey "foo" ] ('Update ('SchemaNumber '[])) ]
 
 type VS = 'Versioned SchemaExample '[ TestMigration ]
-
-exampleTest :: JsonRepr (SchemaOptional (SchemaText '[TEq 3]))
-exampleTest = ReprOptional (Just (ReprText "lil"))
-
-exampleNumber :: JsonRepr (SchemaNumber '[NGt 10])
-exampleNumber = ReprNumber 12
-
-exampleArray :: JsonRepr (SchemaArray '[AEq 1] (SchemaNumber '[NGt 10]))
-exampleArray = ReprArray [exampleNumber]
 
 jsonExample :: JsonRepr SchemaExample
 jsonExample = ReprObject $
@@ -48,9 +33,6 @@ schemaJson = "{\"foo\": [13], \"bar\": null}"
 
 schemaJson2 :: ByteString
 schemaJson2 = "{\"foo\": [3], \"bar\": null}"
-
-schemaJsonTopVersion :: ByteString
-schemaJsonTopVersion = "{ \"foo\": 42, \"bar\": \"bar\" }"
 
 topObject
   :: JsonRepr
@@ -88,7 +70,7 @@ spec = do
   it "validates versioned json" $ do
     decodeAndValidateVersionedJson (Proxy @VS) schemaJson
       `shouldSatisfy` isValid
-  it "validates with Migration List" $ do
+  it "validates versioned json with a migration list" $ do
     decodeAndValidateVersionedWithMList
       (Proxy @VS)
       ((:&&) (Proxy @(SchemaByRevision "test_revision" VS)) (const topObject) MNil)

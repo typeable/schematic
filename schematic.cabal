@@ -134,3 +134,5 @@ test-suite spec
                      , vinyl
   other-modules:       SchemaSpec
                      , LensSpec
+                     , JsonSchemaSpec
+                     , MigrationSpec
