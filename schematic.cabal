@@ -64,6 +64,7 @@ library
                      , aeson >= 1
                      , containers
                      , hjsonschema
+                     , mtl
                      , regex-compat
                      , scientific
                      , singletons >= 2.2

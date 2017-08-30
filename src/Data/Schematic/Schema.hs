@@ -199,6 +199,7 @@ instance SingKind ArrayConstraint where
 
 data Schema
   = SchemaText [TextConstraint]
+  | SchemaBoolean
   | SchemaNumber [NumberConstraint]
   | SchemaObject [(Symbol, Schema)]
   | SchemaArray [ArrayConstraint] Schema
@@ -209,6 +210,7 @@ data Schema
 data DemotedSchema
   = DSchemaText [DemotedTextConstraint]
   | DSchemaNumber [DemotedNumberConstraint]
+  | DSchemaBoolean
   | DSchemaObject [(Text, DemotedSchema)]
   | DSchemaArray [DemotedArrayConstraint] DemotedSchema
   | DSchemaNull
@@ -218,6 +220,7 @@ data DemotedSchema
 data instance Sing (schema :: Schema) where
   SSchemaText :: Sing tcs -> Sing ('SchemaText tcs)
   SSchemaNumber :: Sing ncs -> Sing ('SchemaNumber ncs)
+  SSchemaBoolean :: Sing 'SchemaBoolean
   SSchemaArray :: Sing acs -> Sing schema -> Sing ('SchemaArray acs schema)
   SSchemaObject :: Sing fields -> Sing ('SchemaObject fields)
   SSchemaOptional :: Sing s -> Sing ('SchemaOptional s)
@@ -229,6 +232,8 @@ instance SingI sl => SingI ('SchemaNumber sl) where
   sing = SSchemaNumber sing
 instance SingI 'SchemaNull where
   sing = SSchemaNull
+instance SingI 'SchemaBoolean where
+  sing = SSchemaBoolean
 instance (SingI ac, SingI s) => SingI ('SchemaArray ac s) where
   sing = SSchemaArray sing sing
 instance SingI stl => SingI ('SchemaObject stl) where
@@ -239,6 +244,7 @@ instance SingI s => SingI ('SchemaOptional s) where
 instance Eq (Sing ('SchemaText cs)) where _ == _ = True
 instance Eq (Sing ('SchemaNumber cs)) where _ == _ = True
 instance Eq (Sing 'SchemaNull) where _ == _ = True
+instance Eq (Sing 'SchemaBoolean) where _ == _ = True
 instance Eq (Sing ('SchemaArray as s)) where _ == _ = True
 instance Eq (Sing ('SchemaObject cs)) where _ == _ = True
 instance Eq (Sing ('SchemaOptional s)) where _ == _ = True
@@ -248,6 +254,7 @@ instance SingKind Schema where
   fromSing = \case
     SSchemaText cs -> DSchemaText $ fromSing cs
     SSchemaNumber cs -> DSchemaNumber $ fromSing cs
+    SSchemaBoolean -> DSchemaBoolean
     SSchemaArray cs s -> DSchemaArray (fromSing cs) (fromSing s)
     SSchemaOptional s -> DSchemaOptional $ fromSing s
     SSchemaNull -> DSchemaNull
@@ -262,6 +269,7 @@ instance SingKind Schema where
       SomeSing scs -> SomeSing $ SSchemaText scs
     DSchemaNumber cs -> case toSing cs of
       SomeSing scs -> SomeSing $ SSchemaNumber scs
+    DSchemaBoolean -> SomeSing $ SSchemaBoolean
     DSchemaArray cs sch -> case (toSing cs, toSing sch) of
       (SomeSing scs, SomeSing ssch) -> SomeSing $ SSchemaArray scs ssch
     DSchemaOptional sch -> case toSing sch of
@@ -309,6 +317,7 @@ instance
 data JsonRepr :: Schema -> Type where
   ReprText :: Text -> JsonRepr ('SchemaText cs)
   ReprNumber :: Scientific -> JsonRepr ('SchemaNumber cs)
+  ReprBoolean :: Bool -> JsonRepr 'SchemaBoolean
   ReprNull :: JsonRepr 'SchemaNull
   ReprArray :: V.Vector (JsonRepr s) -> JsonRepr ('SchemaArray cs s)
   ReprObject :: Rec FieldRepr fs -> JsonRepr ('SchemaObject fs)
@@ -383,6 +392,7 @@ instance SingI schema => J.FromJSON (JsonRepr schema) where
   parseJSON value = case sing :: Sing schema of
     SSchemaText _          -> withText "String" (pure . ReprText) value
     SSchemaNumber _        -> withScientific "Number" (pure . ReprNumber) value
+    SSchemaBoolean         -> ReprBoolean <$> parseJSON value
     SSchemaNull            -> case value of
       J.Null -> pure ReprNull
       _      -> typeMismatch "Null" value
@@ -402,6 +412,9 @@ instance SingI schema => J.FromJSON (JsonRepr schema) where
             SSchemaNumber so -> case H.lookup fieldName h of
               Just v  -> withSingI so $ FieldRepr <$> parseJSON v
               Nothing -> fail "schemanumber"
+            SSchemaBoolean -> case H.lookup fieldName h of
+              Just v  -> FieldRepr <$> parseJSON v
+              Nothing -> fail "schemaboolean"
             SSchemaNull -> case H.lookup fieldName h of
               Just v  -> FieldRepr <$> parseJSON v
               Nothing -> fail "schemanull"
@@ -419,6 +432,7 @@ instance SingI schema => J.FromJSON (JsonRepr schema) where
 
 instance J.ToJSON (JsonRepr a) where
   toJSON ReprNull         = J.Null
+  toJSON (ReprBoolean b)  = J.Bool b
   toJSON (ReprText t)     = J.String t
   toJSON (ReprNumber n)   = J.Number n
   toJSON (ReprOptional s) = case s of

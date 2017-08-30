@@ -178,6 +178,7 @@ validateJsonRepr sschema dpath jr = case jr of
           process cs
       process scs
   ReprNull -> pure ()
+  ReprBoolean _ -> pure ()
   ReprArray v -> case sschema of
     SSchemaArray acs s -> do
       let
