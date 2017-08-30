@@ -18,6 +18,7 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Data.Schematic
                      , Data.Schematic.Instances
+                     , Data.Schematic.JsonSchema
                      , Data.Schematic.Lens
                      , Data.Schematic.Migration
                      , Data.Schematic.Path
@@ -61,6 +62,7 @@ library
   build-depends:       base >=4.9 && <4.10
                      , bytestring
                      , aeson >= 1
+                     , containers
                      , regex-compat
                      , scientific
                      , singletons
@@ -110,6 +112,7 @@ test-suite spec
                      , aeson >= 1
                      , base >=4.9 && <4.10
                      , bytestring
+                     , containers
                      , hspec >= 2.2.0
                      , hspec-core
                      , hspec-discover
