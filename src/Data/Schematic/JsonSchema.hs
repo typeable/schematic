@@ -20,17 +20,17 @@ draft4 = "http://json-schema.org/draft-04/schema#"
 --   { D4._schemaVersion = pure draft4
 --   }
 
-toJsonSchema
-  :: forall schema. (SingI schema)
-  => Sing (schema :: Schema)
-  -> D4.Schema
-toJsonSchema _ = case fromSing (sing :: Sing schema) of
-  SchemaText tcs -> D4.emptySchema
-  SchemaNumber ncs -> D4.emptySchema
-  SchemaObject ocs -> D4.emptySchema
-  SchemaArray acs sch -> D4.emptySchema
-  SchemaNull -> D4.emptySchema
-  SchemaOptional sch -> D4.emptySchema
+-- toJsonSchema
+--   :: forall schema. (SingI schema)
+--   => Sing (schema :: Schema)
+--   -> D4.Schema
+-- toJsonSchema _ = case fromSing (sing :: Sing schema) of
+--   SchemaText tcs -> D4.emptySchema
+--   SchemaNumber ncs -> D4.emptySchema
+--   SchemaObject ocs -> D4.emptySchema
+--   SchemaArray acs sch -> D4.emptySchema
+--   SchemaNull -> D4.emptySchema
+--   SchemaOptional sch -> D4.emptySchema
 
 -- jsonObject :: M.Map Text JsonSchema -> JsonSchema
 -- jsonObject m = JsonObject

@@ -22,13 +22,10 @@ import           Data.Vector as V
 import           Data.Vinyl hiding (Dict)
 import qualified Data.Vinyl.TypeLevel as V
 import           GHC.Generics (Generic)
+import           GHC.TypeLits (SomeNat(..), SomeSymbol(..), someSymbolVal, someNatVal)
 import           Prelude as P
 import           Test.SmallCheck.Series
 
-
-type family All (c :: k -> Constraint) (s :: [k]) :: Constraint where
-  All c '[]       = ()
-  All c (a ': as) = (c a, All c as)
 
 type family CRepr (s :: Schema) :: Type where
   CRepr ('SchemaText cs)  = TextConstraint
@@ -46,6 +43,40 @@ data TextConstraint
   | TEnum [Symbol]
   deriving (Generic)
 
+instance SingKind TextConstraint where
+  type DemoteRep TextConstraint = DemotedTextConstraint
+  fromSing = \case
+    STEq n -> withKnownNat n (DTEq $ natVal n)
+    STLt n -> withKnownNat n (DTLt $ natVal n)
+    STLe n -> withKnownNat n (DTLe $ natVal n)
+    STGt n -> withKnownNat n (DTGt $ natVal n)
+    STGe n -> withKnownNat n (DTGe $ natVal n)
+    STRegex s -> withKnownSymbol s (DTRegex $ T.pack $ symbolVal s)
+    STEnum s -> let
+      d :: Sing (s :: [Symbol]) -> [Text]
+      d SNil              = []
+      d (SCons ss@SSym fs) = T.pack (symbolVal ss) : d fs
+      in DTEnum $ d s
+  toSing = \case
+    DTEq n -> case someNatVal n of
+      Just (SomeNat (_ :: Proxy n)) -> SomeSing (STEq (SNat :: Sing n))
+      Nothing -> error "Negative singleton nat"
+    DTLt n -> case someNatVal n of
+      Just (SomeNat (_ :: Proxy n)) -> SomeSing (STLt (SNat :: Sing n))
+      Nothing -> error "Negative singleton nat"
+    DTLe n -> case someNatVal n of
+      Just (SomeNat (_ :: Proxy n)) -> SomeSing (STLe (SNat :: Sing n))
+      Nothing -> error "Negative singleton nat"
+    DTGt n -> case someNatVal n of
+      Just (SomeNat (_ :: Proxy n)) -> SomeSing (STGt (SNat :: Sing n))
+      Nothing -> error "Negative singleton nat"
+    DTGe n -> case someNatVal n of
+      Just (SomeNat (_ :: Proxy n)) -> SomeSing (STGe (SNat :: Sing n))
+      Nothing -> error "Negative singleton nat"
+    DTRegex s -> case someSymbolVal (T.unpack s) of
+      SomeSymbol (_ :: Proxy n) -> SomeSing (STRegex (SSym :: Sing n))
+    DTEnum ss -> case toSing (T.unpack <$> ss) of
+      SomeSing l -> SomeSing (STEnum l)
 
 data DemotedTextConstraint
   = DTEq Integer
@@ -64,7 +95,7 @@ data instance Sing (tc :: TextConstraint) where
   STGt :: Sing n -> Sing ('TGt n)
   STGe :: Sing n -> Sing ('TGe n)
   STRegex :: Sing s -> Sing ('TRegex s)
-  STEnum :: All KnownSymbol ss => Sing ss -> Sing ('TEnum ss)
+  STEnum :: Sing ss -> Sing ('TEnum ss)
 
 instance (KnownNat n) => SingI ('TEq n) where sing = STEq sing
 instance (KnownNat n) => SingI ('TGt n) where sing = STGt sing
@@ -72,7 +103,7 @@ instance (KnownNat n) => SingI ('TGe n) where sing = STGe sing
 instance (KnownNat n) => SingI ('TLt n) where sing = STLt sing
 instance (KnownNat n) => SingI ('TLe n) where sing = STLe sing
 instance (KnownSymbol s, SingI s) => SingI ('TRegex s) where sing = STRegex sing
-instance (All KnownSymbol ss, SingI ss) => SingI ('TEnum ss) where sing = STEnum sing
+instance (SingI ss) => SingI ('TEnum ss) where sing = STEnum sing
 
 instance Eq (Sing ('TEq n)) where _ == _ = True
 instance Eq (Sing ('TLt n)) where _ == _ = True
@@ -117,6 +148,31 @@ instance Eq (Sing ('NLe n)) where _ == _ = True
 instance Eq (Sing ('NGt n)) where _ == _ = True
 instance Eq (Sing ('NGe n)) where _ == _ = True
 
+instance SingKind NumberConstraint where
+  type DemoteRep NumberConstraint = DemotedNumberConstraint
+  fromSing = \case
+    SNEq n -> withKnownNat n (DNEq $ natVal n)
+    SNGt n -> withKnownNat n (DNGt $ natVal n)
+    SNGe n -> withKnownNat n (DNGe $ natVal n)
+    SNLt n -> withKnownNat n (DNLt $ natVal n)
+    SNLe n -> withKnownNat n (DNLe $ natVal n)
+  toSing = \case
+    DNEq n -> case someNatVal n of
+      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNEq (SNat :: Sing n))
+      Nothing -> error "Negative singleton nat"
+    DNGt n -> case someNatVal n of
+      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNGt (SNat :: Sing n))
+      Nothing -> error "Negative singleton nat"
+    DNGe n -> case someNatVal n of
+      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNGe (SNat :: Sing n))
+      Nothing -> error "Negative singleton nat"
+    DNLt n -> case someNatVal n of
+      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNLt (SNat :: Sing n))
+      Nothing -> error "Negative singleton nat"
+    DNLe n -> case someNatVal n of
+      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNLe (SNat :: Sing n))
+      Nothing -> error "Negative singleton nat"
+
 data ArrayConstraint
   = AEq Nat
   deriving (Generic)
@@ -131,6 +187,15 @@ data instance Sing (ac :: ArrayConstraint) where
 instance KnownNat n => SingI ('AEq n) where sing = SAEq sing
 
 instance Eq (Sing ('AEq n)) where _ == _ = True
+
+instance SingKind ArrayConstraint where
+  type DemoteRep ArrayConstraint = DemotedArrayConstraint
+  fromSing = \case
+    SAEq n -> withKnownNat n (DAEq $ natVal n)
+  toSing = \case
+    DAEq n -> case someNatVal n of
+      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SAEq (SNat :: Sing n))
+      Nothing -> error "Negative singleton nat"
 
 data Schema
   = SchemaText [TextConstraint]
@@ -178,51 +243,32 @@ instance Eq (Sing ('SchemaArray as s)) where _ == _ = True
 instance Eq (Sing ('SchemaObject cs)) where _ == _ = True
 instance Eq (Sing ('SchemaOptional s)) where _ == _ = True
 
--- | One-way 'SingKind` variation
--- class SingKind' k where
---   type DemoteRep' k :: *
---   fromSing' :: Sing (a :: k) -> DemoteRep' k
-
--- instance SingKind' TextConstraint where
---   type DemoteRep' TextConstraint = DemotedTextConstraint
---   fromSing' = \case
---     STEq n -> withKnownNat n (DTEq $ natVal n)
---     STLt n -> withKnownNat n (DTLt $ natVal n)
---     STLe n -> withKnownNat n (DTLe $ natVal n)
---     STGt n -> withKnownNat n (DTGt $ natVal n)
---     STGe n -> withKnownNat n (DTGe $ natVal n)
---     STRegex s -> withKnownSymbol s (DTRegex $ T.pack $ symbolVal s)
---     STEnum s -> let
---       d :: Sing (s :: [Symbol]) -> [Text]
---       d SNil              = []
---       d (SCons ss@SSym fs) = T.pack (symbolVal ss) : d fs
---       in DTEnum $ d s
-
--- instance SingKind' NumberConstraint where
---   type DemoteRep' NumberConstraint = DemotedNumberConstraint
---   fromSing' = \case
---     SNLe n -> withKnownNat n (DNLe $ natVal n)
---     SNLt n -> withKnownNat n (DNLt $ natVal n)
---     SNGe n -> withKnownNat n (DNGe $ natVal n)
---     SNGt n -> withKnownNat n (DNGt $ natVal n)
---     SNEq n -> withKnownNat n (DNEq $ natVal n)
-
--- instance SingKind' ArrayConstraint where
---   type DemoteRep' ArrayConstraint = DemotedArrayConstraint
---   fromSing' = \case
---     SAEq n -> withKnownNat n (DAEq $ natVal n)
-
--- instance SingKind' Schema where
---   type DemoteRep' Schema = DemotedSchema
---   fromSing' = \case
---     SSchemaText tcs -> DSchemaText $ fromSing' tcs
-    -- SchemaText [TextConstraint]
-    -- SchemaNumber [NumberConstraint]
-    -- SchemaObject [(Symbol, Schema)]
-    -- SchemaArray [ArrayConstraint] Schema
-    -- SchemaNull
-    -- SchemaOptional Schema
-
+instance SingKind Schema where
+  type DemoteRep Schema = DemotedSchema
+  fromSing = \case
+    SSchemaText cs -> DSchemaText $ fromSing cs
+    SSchemaNumber cs -> DSchemaNumber $ fromSing cs
+    SSchemaArray cs s -> DSchemaArray (fromSing cs) (fromSing s)
+    SSchemaOptional s -> DSchemaOptional $ fromSing s
+    SSchemaNull -> DSchemaNull
+    SSchemaObject cs -> let
+      dem :: Sing (s :: [(Symbol, Schema)]) -> [(Text, DemotedSchema)]
+      dem SNil              = []
+      dem (SCons (STuple2 ss ssch) fs) = withKnownSymbol ss
+        $ (T.pack (symbolVal ss), fromSing ssch) : dem fs
+      in DSchemaObject $ dem cs
+  toSing = \case
+    DSchemaText cs -> case toSing cs of
+      SomeSing scs -> SomeSing $ SSchemaText scs
+    DSchemaNumber cs -> case toSing cs of
+      SomeSing scs -> SomeSing $ SSchemaNumber scs
+    DSchemaArray cs sch -> case (toSing cs, toSing sch) of
+      (SomeSing scs, SomeSing ssch) -> SomeSing $ SSchemaArray scs ssch
+    DSchemaOptional sch -> case toSing sch of
+      SomeSing ssch -> SomeSing $ SSchemaOptional ssch
+    DSchemaNull -> SomeSing SSchemaNull
+    DSchemaObject cs -> case toSing ((\(sym,sch) -> (T.unpack sym, sch)) <$> cs) of
+      SomeSing scs -> SomeSing $ SSchemaObject scs
 
 data FieldRepr :: (Symbol, Schema) -> Type where
   FieldRepr
