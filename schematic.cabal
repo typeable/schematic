@@ -135,4 +135,3 @@ test-suite spec
   other-modules:       SchemaSpec
                      , LensSpec
                      , JsonSchemaSpec
-                     , MigrationSpec
