@@ -63,9 +63,10 @@ library
                      , bytestring
                      , aeson >= 1
                      , containers
+                     , hjsonschema
                      , regex-compat
                      , scientific
-                     , singletons
+                     , singletons >= 2.2
                      , smallcheck
                      , smallcheck-series
                      , tagged
@@ -113,6 +114,7 @@ test-suite spec
                      , base >=4.9 && <4.10
                      , bytestring
                      , containers
+                     , hjsonschema
                      , hspec >= 2.2.0
                      , hspec-core
                      , hspec-discover
@@ -122,7 +124,7 @@ test-suite spec
                      , schematic
                      , smallcheck
                      , smallcheck-series
-                     , singletons
+                     , singletons >= 2.3.1
                      , tagged
                      , text
                      , unordered-containers

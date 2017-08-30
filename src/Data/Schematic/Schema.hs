@@ -46,6 +46,17 @@ data TextConstraint
   | TEnum [Symbol]
   deriving (Generic)
 
+
+data DemotedTextConstraint
+  = DTEq Integer
+  | DTLt Integer
+  | DTLe Integer
+  | DTGt Integer
+  | DTGe Integer
+  | DTRegex Text
+  | DTEnum [Text]
+  deriving (Generic)
+
 data instance Sing (tc :: TextConstraint) where
   STEq :: Sing n -> Sing ('TEq n)
   STLt :: Sing n -> Sing ('TLt n)
@@ -79,6 +90,14 @@ data NumberConstraint
   | NEq Nat
   deriving (Generic)
 
+data DemotedNumberConstraint
+  = DNLe Integer
+  | DNLt Integer
+  | DNGt Integer
+  | DNGe Integer
+  | DNEq Integer
+  deriving (Generic)
+
 data instance Sing (nc :: NumberConstraint) where
   SNEq :: Sing n -> Sing ('NEq n)
   SNGt :: Sing n -> Sing ('NGt n)
@@ -102,6 +121,10 @@ data ArrayConstraint
   = AEq Nat
   deriving (Generic)
 
+data DemotedArrayConstraint
+  = DAEq Integer
+  deriving (Generic)
+
 data instance Sing (ac :: ArrayConstraint) where
   SAEq :: Sing n -> Sing ('AEq n)
 
@@ -116,6 +139,15 @@ data Schema
   | SchemaArray [ArrayConstraint] Schema
   | SchemaNull
   | SchemaOptional Schema
+  deriving (Generic)
+
+data DemotedSchema
+  = DSchemaText [DemotedTextConstraint]
+  | DSchemaNumber [DemotedNumberConstraint]
+  | DSchemaObject [(Text, DemotedSchema)]
+  | DSchemaArray [DemotedArrayConstraint] DemotedSchema
+  | DSchemaNull
+  | DSchemaOptional DemotedSchema
   deriving (Generic)
 
 data instance Sing (schema :: Schema) where
@@ -145,6 +177,52 @@ instance Eq (Sing 'SchemaNull) where _ == _ = True
 instance Eq (Sing ('SchemaArray as s)) where _ == _ = True
 instance Eq (Sing ('SchemaObject cs)) where _ == _ = True
 instance Eq (Sing ('SchemaOptional s)) where _ == _ = True
+
+-- | One-way 'SingKind` variation
+-- class SingKind' k where
+--   type DemoteRep' k :: *
+--   fromSing' :: Sing (a :: k) -> DemoteRep' k
+
+-- instance SingKind' TextConstraint where
+--   type DemoteRep' TextConstraint = DemotedTextConstraint
+--   fromSing' = \case
+--     STEq n -> withKnownNat n (DTEq $ natVal n)
+--     STLt n -> withKnownNat n (DTLt $ natVal n)
+--     STLe n -> withKnownNat n (DTLe $ natVal n)
+--     STGt n -> withKnownNat n (DTGt $ natVal n)
+--     STGe n -> withKnownNat n (DTGe $ natVal n)
+--     STRegex s -> withKnownSymbol s (DTRegex $ T.pack $ symbolVal s)
+--     STEnum s -> let
+--       d :: Sing (s :: [Symbol]) -> [Text]
+--       d SNil              = []
+--       d (SCons ss@SSym fs) = T.pack (symbolVal ss) : d fs
+--       in DTEnum $ d s
+
+-- instance SingKind' NumberConstraint where
+--   type DemoteRep' NumberConstraint = DemotedNumberConstraint
+--   fromSing' = \case
+--     SNLe n -> withKnownNat n (DNLe $ natVal n)
+--     SNLt n -> withKnownNat n (DNLt $ natVal n)
+--     SNGe n -> withKnownNat n (DNGe $ natVal n)
+--     SNGt n -> withKnownNat n (DNGt $ natVal n)
+--     SNEq n -> withKnownNat n (DNEq $ natVal n)
+
+-- instance SingKind' ArrayConstraint where
+--   type DemoteRep' ArrayConstraint = DemotedArrayConstraint
+--   fromSing' = \case
+--     SAEq n -> withKnownNat n (DAEq $ natVal n)
+
+-- instance SingKind' Schema where
+--   type DemoteRep' Schema = DemotedSchema
+--   fromSing' = \case
+--     SSchemaText tcs -> DSchemaText $ fromSing' tcs
+    -- SchemaText [TextConstraint]
+    -- SchemaNumber [NumberConstraint]
+    -- SchemaObject [(Symbol, Schema)]
+    -- SchemaArray [ArrayConstraint] Schema
+    -- SchemaNull
+    -- SchemaOptional Schema
+
 
 data FieldRepr :: (Symbol, Schema) -> Type where
   FieldRepr

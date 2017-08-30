@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedLabels #-}
 
@@ -6,58 +7,39 @@ module Data.Schematic.JsonSchema where
 import           Data.Aeson
 import qualified Data.Map as M
 import           Data.Schematic.Schema
+import           Data.Singletons
 import           Data.Text
+import qualified JSONSchema.Draft4.Schema as D4
 
 
-draft6 :: Text
-draft6 = "http://json-schema.org/draft-06/schema#"
+draft4 :: Text
+draft4 = "http://json-schema.org/draft-04/schema#"
 
-data JsonSchemaType
-  = JObject
-  | JArray
-  | JNumber
-  | JString
-  | JNull
+-- toJsonSchema :: JsonRepr schema -> D4.Schema
+-- toJsonSchema (ReprText t) = D4.emptySchema
+--   { D4._schemaVersion = pure draft4
+--   }
 
-instance ToJSON JsonSchemaType where
-  toJSON JObject = "object"
-  toJSON JArray = "array"
-  toJSON JNumber = "number"
-  toJSON JString = "string"
-  toJSON JNull = "null"
+toJsonSchema
+  :: forall schema. (SingI schema)
+  => Sing (schema :: Schema)
+  -> D4.Schema
+toJsonSchema _ = case fromSing (sing :: Sing schema) of
+  SchemaText tcs -> D4.emptySchema
+  SchemaNumber ncs -> D4.emptySchema
+  SchemaObject ocs -> D4.emptySchema
+  SchemaArray acs sch -> D4.emptySchema
+  SchemaNull -> D4.emptySchema
+  SchemaOptional sch -> D4.emptySchema
 
-data JsonSchema
-  = RootSchema
-    { type_ :: JsonSchemaType
-    , title :: Text
-    , items :: Maybe Text
-    , schemaDraft :: Text }
-  | JsonObject
-    { type_ :: JsonSchemaType
-    , properties :: M.Map Text JsonSchema
-    , additionalProperties :: Bool
-    , required :: [Text]
-    , schemaDraft :: Text }
-  | JsonOptional JsonSchema
-
-jsonObject :: M.Map Text JsonSchema -> JsonSchema
-jsonObject m = JsonObject
-  { type_ = JObject
-  , properties = m
-  , additionalProperties = False
-  , required = M.keys $ M.filter
-    (\case; JsonOptional _ -> False; _ -> True) m
-  , schemaDraft = draft6 }
-
-instance ToJSON JsonSchema where
-  toJSON RootSchema{..} = object [ "type" .= type_, "title" .= title ]
-  toJSON JsonObject{..} =
-    object
-      [ "type" .= type_
-      , "properties" .= properties
-      , "additionalProperties" .= additionalProperties
-      , "required" .= required
-      , "schemaDraft" .= schemaDraft]
+-- jsonObject :: M.Map Text JsonSchema -> JsonSchema
+-- jsonObject m = JsonObject
+--   { type_ = JObject
+--   , properties = m
+--   , additionalProperties = False
+--   , required = M.keys $ M.filter
+--     (\case; JsonOptional _ -> False; _ -> True) m
+--   , schemaDraft = draft6 }
 
 -- Root schema:
 --
