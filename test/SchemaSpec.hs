@@ -2,8 +2,9 @@
 
 module SchemaSpec (spec, main) where
 
-import Data.ByteString.Lazy
 import Data.Aeson
+import Data.ByteString.Lazy
+import Data.Functor.Identity
 import Data.Proxy
 import Data.Schematic
 import Data.Vinyl
@@ -44,14 +45,6 @@ topObject = ReprObject $
     :& FieldRepr (ReprText "test")
     :& RNil
 
-instance
-  MigrateSchema
-    SchemaExample
-    ('SchemaObject
-      '[ '("foo", 'SchemaNumber '[]), '("bar", 'SchemaText '[])])
-  where
-  migrate = const topObject
-
 spec :: Spec
 spec = do
   -- it "show/read JsonRepr properly" $
@@ -67,13 +60,15 @@ spec = do
   it "validates incorrect representation" $
     ((decodeAndValidateJson schemaJson2) :: ParseResult (JsonRepr SchemaExample))
       `shouldSatisfy` isValidationError
-  it "validates versioned json" $ do
-    decodeAndValidateVersionedJson (Proxy @VS) schemaJson
-      `shouldSatisfy` isValid
+  -- it "validates versioned json" $ do
+  --   decodeAndValidateVersionedJson (Proxy @VS) schemaJson
+  --     `shouldSatisfy` isValid
   it "validates versioned json with a migration list" $ do
-    decodeAndValidateVersionedWithMList
+    decodeAndValidateVersionedWithPureMList
       (Proxy @VS)
-      ((:&&) (Proxy @(SchemaByRevision "test_revision" VS)) (const topObject) MNil)
+      ((:&&)
+        (Proxy @(SchemaByRevision "test_revision" VS))
+        (const $ Identity topObject) MNil)
       schemaJson
         `shouldSatisfy` isValid
 

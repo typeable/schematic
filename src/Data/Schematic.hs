@@ -13,6 +13,7 @@ module Data.Schematic
   , parseAndValidateTopVersionJson
   , parseAndValidateWithMList
   , decodeAndValidateVersionedWithMList
+  , decodeAndValidateVersionedWithPureMList
   , isValid
   , isDecodingError
   , isValidationError
@@ -114,3 +115,11 @@ decodeAndValidateVersionedWithMList
 decodeAndValidateVersionedWithMList _ mlist bs = case decode bs of
   Nothing -> pure $ DecodingError "malformed json"
   Just x  -> parseAndValidateWithMList mlist x
+
+decodeAndValidateVersionedWithPureMList
+  :: proxy versioned
+  -> MList Identity (MapSnd (AllVersions versioned))
+  -> BL.ByteString
+  -> ParseResult (JsonRepr (Head (MapSnd (AllVersions versioned))))
+decodeAndValidateVersionedWithPureMList a b c =
+  runIdentity $ decodeAndValidateVersionedWithMList a b c
