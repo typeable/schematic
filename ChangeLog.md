@@ -1,5 +1,8 @@
 # Revision history for schematic
 
+## 0.2.0.0 -- 2017-09-26
+
+Migratable is deprecated, migrations are now possible in an arbitrary monad.
 
 ## 0.1.5.0 -- 2017-08-22
 

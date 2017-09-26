@@ -10,16 +10,13 @@ module Data.Schematic
   , decodeAndValidateJson
   , parseAndValidateJson
   , parseAndValidateJsonBy
-  , parseAndValidateVersionedJson
   , parseAndValidateTopVersionJson
-  , decodeAndValidateVersionedJson
   , parseAndValidateWithMList
   , decodeAndValidateVersionedWithMList
   , isValid
   , isDecodingError
   , isValidationError
   , ParseResult(..)
-  , Migratable
   ) where
 
 import Control.Monad.Validation
@@ -78,44 +75,22 @@ parseAndValidateTopVersionJson _ v =
         Left em  -> ValidationError em
         Right () -> Valid jsonRepr
 
-class Migratable (revisions :: [(Revision, Schema)]) where
-  mparse
-    :: Sing revisions
-    -> J.Value
-    -> ParseResult (JsonRepr (Snd (Head revisions)))
-
-instance
-  {-# OVERLAPPING #-}
-  ( TopLevel (Snd rev), SingI (Snd rev) )
-  => Migratable '[rev] where
-  mparse _ = parseAndValidateJson
-
-instance {-# OVERLAPPABLE #-}
-  ( Migratable (Tail revisions)
-  , MigrateSchema (Snd (Head (Tail revisions))) (Snd (Head revisions))
-  , SingI (Snd (Head revisions)))
-  => Migratable revisions where
-  mparse s v = case parseEither parseJSON v of
-    Left _  ->
-      migrate <$> (mparse (sTail s) v :: ParseResult (JsonRepr (Snd (Head (Tail revisions)))))
-    Right x -> Valid x
-
-parseAndValidateVersionedJson
-  :: forall proxy v. (SingI (AllVersions v), Migratable (AllVersions v))
-  => proxy v
-  -> J.Value
-  -> ParseResult (JsonRepr (Snd (Head (AllVersions v))))
-parseAndValidateVersionedJson _ v = mparse (sing :: Sing (AllVersions v)) v
-
 parseAndValidateWithMList
-  :: MList revisions
+  :: Monad m
+  => MList m revisions
   -> J.Value
-  -> ParseResult (JsonRepr (Head revisions))
-parseAndValidateWithMList MNil v = parseAndValidateJson v
+  -> m (ParseResult (JsonRepr (Head revisions)))
+parseAndValidateWithMList MNil v = pure $ parseAndValidateJson v
 parseAndValidateWithMList ((:&&) p f tl) v = case parseAndValidateJsonBy p v of
-    Valid a           -> Valid a
-    DecodingError _   -> f <$> parseAndValidateWithMList tl v
-    ValidationError _ -> f <$> parseAndValidateWithMList tl v
+    Valid a           -> pure $ Valid a
+    DecodingError _   -> do
+      pr <- parseAndValidateWithMList tl v
+      let pr' = f <$> pr
+      sequence pr'
+    ValidationError _ -> do
+      pr <- parseAndValidateWithMList tl v
+      let pr' = f <$> pr
+      sequence pr'
 
 decodeAndValidateJson
   :: forall schema
@@ -126,24 +101,16 @@ decodeAndValidateJson bs = case decode bs of
   Nothing -> DecodingError "malformed json"
   Just x  -> parseAndValidateJson x
 
-decodeAndValidateVersionedJson
-  :: (Migratable (AllVersions versioned), SingI (AllVersions versioned))
-  => proxy versioned
-  -> BL.ByteString
-  -> ParseResult (JsonRepr (Snd (Head (AllVersions versioned))))
-decodeAndValidateVersionedJson vp bs = case decode bs of
-  Nothing -> DecodingError "malformed json"
-  Just x  -> parseAndValidateVersionedJson vp x
-
 type family MapSnd (l :: [(a,k)]) = (r :: [k]) where
   MapSnd '[] = '[]
   MapSnd ( '(a, b) ': tl) = b ': MapSnd tl
 
 decodeAndValidateVersionedWithMList
-  :: proxy versioned
-  -> MList (MapSnd (AllVersions versioned))
+  :: Monad m
+  => proxy versioned
+  -> MList m (MapSnd (AllVersions versioned))
   -> BL.ByteString
-  -> ParseResult (JsonRepr (Head (MapSnd (AllVersions versioned))))
+  -> m (ParseResult (JsonRepr (Head (MapSnd (AllVersions versioned)))))
 decodeAndValidateVersionedWithMList _ mlist bs = case decode bs of
-  Nothing -> DecodingError "malformed json"
+  Nothing -> pure $ DecodingError "malformed json"
   Just x  -> parseAndValidateWithMList mlist x

@@ -12,6 +12,7 @@ import Data.Scientific
 import Data.Singletons.Prelude
 import Data.Singletons.TypeLits
 import Data.Text as T
+import Data.Traversable
 import Data.Vector as V
 import Data.Vinyl
 import Prelude as P
@@ -26,7 +27,7 @@ data ParseResult a
   = Valid a
   | DecodingError Text       -- static
   | ValidationError ErrorMap -- runtime
-  deriving (Show, Eq, Functor)
+  deriving (Show, Eq, Functor, Foldable, Traversable)
 
 isValid :: ParseResult a -> Bool
 isValid (Valid _) = True

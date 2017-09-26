@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                schematic
-version:             0.1.6.0
+version:             0.2.0.0
 synopsis:            JSON-biased spec and validation tool
 -- description:
 license:             BSD3
@@ -32,6 +32,7 @@ library
                      , DefaultSignatures
                      , DeriveFunctor
                      , DeriveFoldable
+                     , DeriveTraversable
                      , DeriveGeneric
                      , DeriveDataTypeable
                      , FlexibleContexts

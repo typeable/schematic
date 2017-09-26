@@ -99,9 +99,6 @@ type family AllVersions' (acc :: [(Revision, Schema)]) (ms :: [Migration]) = (r 
 type family TopVersion (rs :: [(Revision, Schema)]) :: Schema where
   TopVersion ( '(rh, sh) ': tl) = sh
 
-class MigrateSchema (a :: Schema) (b :: Schema) where
-  migrate :: JsonRepr a -> JsonRepr b
-
 data Action = AddKey Symbol Schema | Update Schema | DeleteKey Symbol
 
 data instance Sing (a :: Action) where
@@ -141,13 +138,13 @@ data instance Sing (v :: Versioned) where
     -> Sing (ms :: [Migration]) -- a bunch of migrations
     -> Sing ('Versioned s ms)
 
-data MList :: [Schema] -> Type where
-  MNil :: (SingI s, TopLevel s) => MList '[s]
+data MList :: (* -> *) -> [Schema] -> Type where
+  MNil :: (Monad m, SingI s, TopLevel s) => MList m '[s]
   (:&&)
     :: (TopLevel s, SingI s)
     => proxy s
-    -> (JsonRepr h -> JsonRepr s)
-    -> MList (h ': tl)
-    -> MList (s ': h ': tl)
+    -> (JsonRepr h -> m (JsonRepr s))
+    -> MList m (h ': tl)
+    -> MList m (s ': h ': tl)
 
 infixr 7 :&&
