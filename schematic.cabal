@@ -60,7 +60,7 @@ library
                      , TypeOperators
                      , TypeSynonymInstances
                      , UndecidableInstances
-  build-depends:       base >=4.9 && <4.10
+  build-depends:       base >=4.9 && <4.11
                      , bytestring
                      , aeson >= 1
                      , containers
@@ -70,7 +70,7 @@ library
                      , scientific
                      , singletons >= 2.2
                      , smallcheck
-                     , smallcheck-series
+                     -- , smallcheck-series
                      , tagged
                      , text
                      , unordered-containers
@@ -114,7 +114,7 @@ test-suite spec
                      , TypeSynonymInstances
   build-depends:       HUnit
                      , aeson >= 1
-                     , base >=4.9 && <4.10
+                     , base >=4.9 && <4.11
                      , bytestring
                      , containers
                      , hjsonschema
@@ -126,7 +126,7 @@ test-suite spec
                      , regex-compat
                      , schematic
                      , smallcheck
-                     , smallcheck-series
+                     -- , smallcheck-series
                      , singletons
                      , tagged
                      , text

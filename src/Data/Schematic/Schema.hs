@@ -44,7 +44,7 @@ data TextConstraint
   deriving (Generic)
 
 instance SingKind TextConstraint where
-  type DemoteRep TextConstraint = DemotedTextConstraint
+  type Demote TextConstraint = DemotedTextConstraint
   fromSing = \case
     STEq n -> withKnownNat n (DTEq $ natVal n)
     STLt n -> withKnownNat n (DTLt $ natVal n)
@@ -75,7 +75,7 @@ instance SingKind TextConstraint where
       Nothing -> error "Negative singleton nat"
     DTRegex s -> case someSymbolVal (T.unpack s) of
       SomeSymbol (_ :: Proxy n) -> SomeSing (STRegex (SSym :: Sing n))
-    DTEnum ss -> case toSing (T.unpack <$> ss) of
+    DTEnum ss -> case toSing ss of
       SomeSing l -> SomeSing (STEnum l)
 
 data DemotedTextConstraint
@@ -149,7 +149,7 @@ instance Eq (Sing ('NGt n)) where _ == _ = True
 instance Eq (Sing ('NGe n)) where _ == _ = True
 
 instance SingKind NumberConstraint where
-  type DemoteRep NumberConstraint = DemotedNumberConstraint
+  type Demote NumberConstraint = DemotedNumberConstraint
   fromSing = \case
     SNEq n -> withKnownNat n (DNEq $ natVal n)
     SNGt n -> withKnownNat n (DNGt $ natVal n)
@@ -189,7 +189,7 @@ instance KnownNat n => SingI ('AEq n) where sing = SAEq sing
 instance Eq (Sing ('AEq n)) where _ == _ = True
 
 instance SingKind ArrayConstraint where
-  type DemoteRep ArrayConstraint = DemotedArrayConstraint
+  type Demote ArrayConstraint = DemotedArrayConstraint
   fromSing = \case
     SAEq n -> withKnownNat n (DAEq $ natVal n)
   toSing = \case
@@ -250,7 +250,7 @@ instance Eq (Sing ('SchemaObject cs)) where _ == _ = True
 instance Eq (Sing ('SchemaOptional s)) where _ == _ = True
 
 instance SingKind Schema where
-  type DemoteRep Schema = DemotedSchema
+  type Demote Schema = DemotedSchema
   fromSing = \case
     SSchemaText cs -> DSchemaText $ fromSing cs
     SSchemaNumber cs -> DSchemaNumber $ fromSing cs
@@ -275,7 +275,7 @@ instance SingKind Schema where
     DSchemaOptional sch -> case toSing sch of
       SomeSing ssch -> SomeSing $ SSchemaOptional ssch
     DSchemaNull -> SomeSing SSchemaNull
-    DSchemaObject cs -> case toSing ((\(sym,sch) -> (T.unpack sym, sch)) <$> cs) of
+    DSchemaObject cs -> case toSing cs of
       SomeSing scs -> SomeSing $ SSchemaObject scs
 
 data FieldRepr :: (Symbol, Schema) -> Type where

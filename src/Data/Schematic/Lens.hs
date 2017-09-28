@@ -54,7 +54,7 @@ instance FElem fn ('(fn, r) ': rs) 'Z where
   {-# INLINE fput #-}
 
 instance (FIndex r (s ': rs) ~ 'S i, FElem r rs i) => FElem r (s ': rs) ('S i) where
-  type ByRevision fn (s ': rs) ('S i) = ByRevision fn rs i
+  type ByRevision r (s ': rs) ('S i) = ByRevision r rs i
 
   flens p f (x :& xs) = fmap (x :&) (flens p f xs)
   {-# INLINE flens #-}
