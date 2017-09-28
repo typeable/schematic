@@ -5,6 +5,8 @@ license:             BSD3
 license-file:        LICENSE
 author:              Denis Redozubov
 maintainer:          denis.redozubov@gmail.com
+homepage:            http://github.com/typeable/schematic
+Bug-reports:         http://github.com/typeable/schematic/issues/
 category:            Data
 build-type:          Simple
 extra-source-files:  ChangeLog.md
