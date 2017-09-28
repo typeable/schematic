@@ -1,5 +1,9 @@
 # Revision history for schematic
 
+## 0.3.0.0 -- 2017-09-28
+
+Updated to GHC 8.2.1 and singletons 2.3.1
+
 ## 0.2.1.0 -- 2017-09-26
 
 Add decodeAndValidateVersionedWithPureMList, fix tests
