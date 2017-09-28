@@ -3,9 +3,10 @@
 
 module Data.Schematic
   ( module Data.Schematic.JsonSchema
-  , module Data.Schematic.Schema
+  , module Data.Schematic.Helpers
   , module Data.Schematic.Lens
   , module Data.Schematic.Migration
+  , module Data.Schematic.Schema
   , module Data.Schematic.Utils
   , decodeAndValidateJson
   , parseAndValidateJson
@@ -26,6 +27,7 @@ import Data.Aeson.Types as J
 import Data.ByteString.Lazy as BL
 import Data.Functor.Identity
 import Data.Schematic.JsonSchema
+import Data.Schematic.Helpers
 import Data.Schematic.Lens
 import Data.Schematic.Migration
 import Data.Schematic.Schema

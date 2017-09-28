@@ -16,7 +16,7 @@ import Data.Traversable
 import Data.Vector as V
 import Data.Vinyl
 import Prelude as P
-import Text.Regex
+import Text.Regex.TDFA
 
 
 type Validation a = ValidationT ErrorMap Identity a
@@ -84,9 +84,9 @@ validateTextConstraint (JSONPath path) t = \case
     unless predicate warn
   STRegex r -> do
     let
-      regex     = withKnownSymbol r $ symbolVal r
-      predicate = maybe False (const True) $ matchRegex (mkRegex regex) (T.unpack t)
-      errMsg    = path <> " must match " <> T.pack (show regex)
+      regex     = withKnownSymbol r $ fromSing r
+      predicate = matchTest (makeRegex (T.unpack regex) :: Regex) (T.unpack t)
+      errMsg    = path <> " must match " <> regex
       warn      = vWarning $ mmSingleton path (pure errMsg)
     unless predicate warn
   STEnum ss -> do

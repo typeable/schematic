@@ -16,6 +16,7 @@ library
   exposed-modules:     Data.Schematic
                      , Data.Schematic.Instances
                      , Data.Schematic.JsonSchema
+                     , Data.Schematic.Helpers
                      , Data.Schematic.Lens
                      , Data.Schematic.Migration
                      , Data.Schematic.Path
@@ -62,7 +63,8 @@ library
                      , containers
                      , hjsonschema
                      , mtl
-                     , regex-compat
+                     , regex-tdfa
+                     , regex-tdfa-text
                      , scientific
                      , singletons >= 2.2
                      , smallcheck
@@ -118,7 +120,8 @@ test-suite spec
                      , hspec-discover
                      , hspec-smallcheck
                      , lens
-                     , regex-compat
+                     , regex-tdfa
+                     , regex-tdfa-text
                      , schematic
                      , smallcheck
                      , singletons
@@ -128,5 +131,6 @@ test-suite spec
                      , validationt >= 0.1.0.1
                      , vinyl
   other-modules:       SchemaSpec
+                     , HelpersSpec
                      , LensSpec
                      , JsonSchemaSpec
