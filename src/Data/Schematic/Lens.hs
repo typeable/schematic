@@ -64,3 +64,60 @@ instance (FIndex r (s ': rs) ~ 'S i, FElem r rs i) => FElem r (s ': rs) ('S i) w
 
   fput y = getIdentity . flens Proxy (\_ -> Identity y)
   {-# INLINE fput #-}
+
+-- This is an internal convenience stolen from the @lens@ library.
+lens
+  :: Functor f
+  => (t -> s)
+  -> (t -> a -> b)
+  -> (s -> f a)
+  -> t
+  -> f b
+lens sa sbt afb s = fmap (sbt s) $ afb (sa s)
+{-# INLINE lens #-}
+
+-- | A partial relation that gives the indices of a sublist in a larger list.
+type family FImage (rs :: [(Symbol, Schema)]) (ss :: [(Symbol, Schema)]) :: [Nat] where
+  FImage '[] ss = '[]
+  FImage ('(fn,s) ': rs) ss = FIndex fn ss ': FImage rs ss
+
+class is ~ FImage rs ss
+  => FSubset (rs :: [(Symbol, Schema)]) (ss :: [(Symbol, Schema)]) is where
+  -- | This is a lens into a slice of the larger record. Morally, we have:
+  --
+  -- > fsubset :: Lens' (Rec FieldRepr ss) (Rec FieldRepr rs)
+  fsubset
+    :: Functor g
+    => (Rec FieldRepr rs -> g (Rec FieldRepr rs))
+    -> Rec FieldRepr ss
+    -> g (Rec FieldRepr ss)
+
+  -- | The getter of the 'fsubset' lens is 'fcast', which takes a larger record
+  -- to a smaller one by forgetting fields.
+  fcast
+    :: Rec FieldRepr ss
+    -> Rec FieldRepr rs
+  fcast = getConst . fsubset Const
+  {-# INLINE fcast #-}
+
+  -- | The setter of the 'fsubset' lens is 'freplace', which allows a slice of
+  -- a record to be replaced with different values.
+  freplace
+    :: Rec FieldRepr rs
+    -> Rec FieldRepr ss
+    -> Rec FieldRepr ss
+  freplace rs = getIdentity . fsubset (\_ -> Identity rs)
+  {-# INLINE freplace #-}
+
+instance FSubset '[] ss '[] where
+  fsubset = lens (const RNil) const
+
+instance
+  ( ByRevision fn ss i ~ s
+  , FElem fn ss i
+  , FSubset rs ss is
+  ) => FSubset ( '(fn,s) ': rs) ss (i ': is) where
+  fsubset = lens (\ss -> fget Proxy ss :& fcast ss) set
+    where
+      set :: Rec FieldRepr ss -> Rec FieldRepr ( '(fn,s) ': rs) -> Rec FieldRepr ss
+      set ss (r :& rs) = fput r $ freplace rs ss
