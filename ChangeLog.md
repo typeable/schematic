@@ -1,5 +1,10 @@
 # Revision history for schematic
 
+## 0.3.1.0 -- 2017-09-28
+
+Add UUID and ISO8601 helpers, json schema constraint export, fsubset lens
+combinator.
+
 ## 0.3.0.0 -- 2017-09-28
 
 Updated to GHC 8.2.1 and singletons 2.3.1
