@@ -17,11 +17,14 @@ type IsUUID = '[UUIDRegex]
 -- ]
 
 -- components
-type ISO8601Date = "[1-9][0-9]{3}-(0[1-9]|1[0-2])-[0-3][0-9]"
+type ISO8601Date = "[1-9][0-9]{3}-(0[1-9]|1[0-2])-([0-2][0-9]|3[0-1])"
 
-type ISO8601Time = "(?:[0-2][0-9]:[0-2][0-9]:[0-6][0-9])?"
+type ISO8601Time = "([0-1][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]"
 
-type ISO8601DateTime = AppendSymbol ISO8601Date (AppendSymbol "T" ISO8601Time)
+type ISO8601DateTime =
+  AppendSymbol
+    ISO8601Date
+    (AppendSymbol "(T" (AppendSymbol ISO8601Time ")?"))
 
 type ISO8601UTC = "(Z|\\+00:00)"
 

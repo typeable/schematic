@@ -32,6 +32,19 @@ iso8601dates = [ "1985-04-12" ]
 invalidIso8601dates :: [Text]
 invalidIso8601dates = [ "1999-13-12" ]
 
+type ISO8601TimeSchema = 'SchemaObject '[ '("time", 'SchemaText IsTime) ]
+
+iso8601times :: [Text]
+iso8601times =
+  [ "19:23:00"
+  , "00:00:00"
+  , "23:47:12" ]
+
+invalidIso8601times :: [Text]
+invalidIso8601times =
+  [ "00:60:00"
+  , "24:01:02" ]
+
 type ISO8601DateTimeSchema = 'SchemaObject '[ '("datetime", 'SchemaText IsDateTime) ]
 
 -- | Taken from ISO8601 RFC 3339
@@ -47,11 +60,10 @@ iso8601datetimes =
 
 invalidIso8601datetimes :: [Text]
 invalidIso8601datetimes =
-  [ "1985-04-29T23:20:50.52Z"
-  , "1996-12-129T16:39:57-08:00"
+  [ "1996-13-129T16:39:57-08:00"
   , "1990-2-31T23:59:60Z"
-  , "1990-12-31T15:59:70"
-  , "1937-01-01T12:00:27.87+24:20"
+  , "1990-12-32T15:59:70"
+  , "1937-01-1T12::27.87+24:20"
   ]
 
 spec :: Spec
@@ -80,6 +92,19 @@ spec = do
       it ("fails to validate incorrect date - " <> dt ^. unpacked) $ do
         let json = "{\"date\": \"" <> (dt ^. unpacked . packedChars) <> "\" }"
         (decodeAndValidateJson json :: ParseResult (JsonRepr ISO8601DateSchema))
+          `shouldSatisfy` isValidationError
+
+  describe "ISO8601 time: " $ do
+    for_ iso8601times $ \dt -> do
+      it ("validates correct time - " <> dt ^. unpacked) $ do
+        let json = "{\"time\": \"" <> (dt ^. unpacked . packedChars) <> "\" }"
+        (decodeAndValidateJson json :: ParseResult (JsonRepr ISO8601TimeSchema))
+          `shouldSatisfy` isValid
+
+    for_ invalidIso8601times $ \dt -> do
+      it ("fails to validate incorrect time - " <> dt ^. unpacked) $ do
+        let json = "{\"time\": \"" <> (dt ^. unpacked . packedChars) <> "\" }"
+        (decodeAndValidateJson json :: ParseResult (JsonRepr ISO8601TimeSchema))
           `shouldSatisfy` isValidationError
 
   describe "ISO8601 datetime: " $ do
