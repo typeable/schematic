@@ -1,5 +1,9 @@
 # Revision history for schematic
 
+## 0.3.2.0 -- 2017-10-02
+
+Fixed FIndex bug, added bunch of convenience isomorphism, re-exports.
+
 ## 0.3.1.0 -- 2017-09-28
 
 Add UUID and ISO8601 helpers, json schema constraint export, fsubset lens
