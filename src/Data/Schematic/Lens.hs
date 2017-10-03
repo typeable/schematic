@@ -8,14 +8,26 @@ module Data.Schematic.Lens
   , FElem(..)
   , FImage
   , FSubset(..)
+  , obj
+  , textRepr
+  , numberRepr
+  , boolRepr
+  , arrayRepr
+  , objectRepr
+  , optionalRepr
   ) where
 
+import Data.Profunctor
 import Data.Proxy
 import Data.Schematic.Schema
+import Data.Scientific
+import Data.Singletons
+import Data.Text
+import Data.Vector as V
 import Data.Vinyl
 import Data.Vinyl.Functor
 import Data.Vinyl.TypeLevel (Nat(..))
-import GHC.TypeLits (Symbol)
+import GHC.TypeLits (Symbol, KnownSymbol)
 
 
 -- | A partial relation that gives the index of a value in a list.
@@ -70,7 +82,7 @@ instance (FIndex r (s ': rs) ~ 'S i, FElem r rs i) => FElem r (s ': rs) ('S i) w
   fput y = getIdentity . flens Proxy (\_ -> Identity y)
   {-# INLINE fput #-}
 
--- This is an internal convenience stolen from the @lens@ library.
+-- This is an internal convenience helpers stolen from the @lens@ library.
 lens
   :: Functor f
   => (t -> s)
@@ -80,6 +92,17 @@ lens
   -> f b
 lens sa sbt afb s = fmap (sbt s) $ afb (sa s)
 {-# INLINE lens #-}
+
+type Iso s t a b = forall p f. (Profunctor p, Functor f) => p a (f b) -> p s (f t)
+
+type Iso' s a = Iso s s a a
+
+iso
+  :: (s -> a)
+  -> (b -> t)
+  -> Iso s t a b
+iso sa bt = dimap sa (fmap bt)
+{-# INLINE iso #-}
 
 -- | A partial relation that gives the indices of a sublist in a larger list.
 type family FImage (rs :: [(Symbol, Schema)]) (ss :: [(Symbol, Schema)]) :: [Nat] where
@@ -125,3 +148,37 @@ instance
     where
       set :: Rec FieldRepr ss -> Rec FieldRepr ( '(fn,s) ': rs) -> Rec FieldRepr ss
       set ss (r :& rs) = fput r $ freplace rs ss
+
+-- A bunch of @Iso@morphisms
+textRepr
+  :: (KnownSymbol fn, SingI fn, SingI cs)
+  => Iso' (FieldRepr '(fn, ('SchemaText cs))) Text
+textRepr = iso (\(FieldRepr (ReprText t)) -> t) (FieldRepr . ReprText)
+
+numberRepr
+  :: (KnownSymbol fn, SingI fn, SingI cs)
+  => Iso' (FieldRepr '(fn, ('SchemaNumber cs))) Scientific
+numberRepr = iso (\(FieldRepr (ReprNumber n)) -> n) (FieldRepr . ReprNumber)
+
+boolRepr
+  :: (KnownSymbol fn, SingI fn, SingI cs)
+  => Iso' (FieldRepr '(fn, 'SchemaBoolean)) Bool
+boolRepr = iso (\(FieldRepr (ReprBoolean b)) -> b) (FieldRepr . ReprBoolean)
+
+arrayRepr
+  :: (KnownSymbol fn, SingI fn, SingI cs, SingI schema)
+  => Iso' (FieldRepr '(fn, ('SchemaArray cs schema))) (V.Vector (JsonRepr schema))
+arrayRepr = iso (\(FieldRepr (ReprArray a)) -> a) (FieldRepr . ReprArray)
+
+objectRepr
+  :: (KnownSymbol fn, SingI fn, SingI fields)
+  => Iso' (FieldRepr '(fn, ('SchemaObject fields))) (Rec FieldRepr fields)
+objectRepr = iso (\(FieldRepr (ReprObject o)) -> o) (FieldRepr . ReprObject)
+
+optionalRepr
+  :: (KnownSymbol fn, SingI fn, SingI schema)
+  => Iso' (FieldRepr '(fn, ('SchemaOptional schema))) (Maybe (JsonRepr schema))
+optionalRepr = iso (\(FieldRepr (ReprOptional r)) -> r) (FieldRepr . ReprOptional)
+
+obj :: (SingI fields) => Iso' (JsonRepr ('SchemaObject fields)) (Rec FieldRepr fields)
+obj = iso (\(ReprObject r) -> r) ReprObject
