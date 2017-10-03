@@ -3,7 +3,12 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE InstanceSigs #-}
 
-module Data.Schematic.Lens where
+module Data.Schematic.Lens
+  ( FIndex
+  , FElem(..)
+  , FImage
+  , FSubset(..)
+  ) where
 
 import Data.Proxy
 import Data.Schematic.Schema
@@ -15,15 +20,15 @@ import GHC.TypeLits (Symbol)
 
 -- | A partial relation that gives the index of a value in a list.
 type family FIndex (r :: Symbol) (rs :: [(Symbol, Schema)]) :: Nat where
-  FIndex r ( '(fn, s) ': rs) = 'Z
-  FIndex r (  s       ': rs) = 'S (FIndex r rs)
+  FIndex r ( '(r, s) ': rs) = 'Z
+  FIndex r (  s      ': rs) = 'S (FIndex r rs)
 
 class i ~ FIndex fn rs => FElem (fn :: Symbol) (rs :: [(Symbol, Schema)]) (i :: Nat) where
-  type ByRevision fn rs i :: Schema
+  type ByField fn rs i :: Schema
   flens
     :: Functor g
     => proxy fn
-    -> (FieldRepr '(fn, (ByRevision fn rs i)) -> g (FieldRepr '(fn, (ByRevision fn rs i))))
+    -> (FieldRepr '(fn, (ByField fn rs i)) -> g (FieldRepr '(fn, (ByField fn rs i))))
     -> Rec FieldRepr rs
     -> g (Rec FieldRepr rs)
 
@@ -31,18 +36,18 @@ class i ~ FIndex fn rs => FElem (fn :: Symbol) (rs :: [(Symbol, Schema)]) (i :: 
   fget
     :: proxy fn
     -> Rec FieldRepr rs
-    -> FieldRepr '(fn, (ByRevision fn rs i))
+    -> FieldRepr '(fn, (ByField fn rs i))
 
   -- | For Vinyl users who are not using the @lens@ package, we also provide a
   -- setter. In general, it will be unambiguous what field is being written to,
   -- and so we do not take a proxy argument here.
   fput
-    :: FieldRepr '(fn, ByRevision fn rs i)
+    :: FieldRepr '(fn, ByField fn rs i)
     -> Rec FieldRepr rs
     -> Rec FieldRepr rs
 
 instance FElem fn ('(fn, r) ': rs) 'Z where
-  type ByRevision fn ('(fn, r) ': rs) 'Z = r
+  type ByField fn ('(fn, r) ': rs) 'Z = r
 
   flens _ f (x :& xs) = fmap (:& xs) (f x)
   {-# INLINE flens #-}
@@ -54,7 +59,7 @@ instance FElem fn ('(fn, r) ': rs) 'Z where
   {-# INLINE fput #-}
 
 instance (FIndex r (s ': rs) ~ 'S i, FElem r rs i) => FElem r (s ': rs) ('S i) where
-  type ByRevision r (s ': rs) ('S i) = ByRevision r rs i
+  type ByField r (s ': rs) ('S i) = ByField r rs i
 
   flens p f (x :& xs) = fmap (x :&) (flens p f xs)
   {-# INLINE flens #-}
@@ -113,10 +118,9 @@ instance FSubset '[] ss '[] where
   fsubset = lens (const RNil) const
 
 instance
-  ( ByRevision fn ss i ~ s
+  ( ByField fn ss i ~ s
   , FElem fn ss i
-  , FSubset rs ss is
-  ) => FSubset ( '(fn,s) ': rs) ss (i ': is) where
+  , FSubset rs ss is) => FSubset ( '(fn,s) ': rs) ss (i ': is) where
   fsubset = lens (\ss -> fget Proxy ss :& fcast ss) set
     where
       set :: Rec FieldRepr ss -> Rec FieldRepr ( '(fn,s) ': rs) -> Rec FieldRepr ss

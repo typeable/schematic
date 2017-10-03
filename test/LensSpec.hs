@@ -13,7 +13,7 @@ type ArraySchema = 'SchemaArray '[ 'AEq 1] ('SchemaNumber '[ 'NGt 10])
 type ArrayField = '("foo", ArraySchema)
 
 type FieldsSchema =
-  '[ ArrayField, '("bar", 'SchemaOptional ('SchemaText '[ 'TEnum '["foo", "bar"]]))]
+  '[ '("bar", 'SchemaOptional ('SchemaText '[ 'TEnum '["foo", "bar"]])), ArrayField]
 
 type SchemaExample = 'SchemaObject FieldsSchema
 
@@ -24,8 +24,8 @@ arrayField :: FieldRepr ArrayField
 arrayField = FieldRepr arrayData
 
 objectData :: Rec FieldRepr FieldsSchema
-objectData = FieldRepr arrayData
-  :& FieldRepr (ReprOptional (Just (ReprText "foo")))
+objectData = FieldRepr (ReprOptional (Just (ReprText "foo")))
+  :& FieldRepr arrayData
   :& RNil
 
 exampleData :: JsonRepr SchemaExample
