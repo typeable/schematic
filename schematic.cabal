@@ -71,6 +71,7 @@ library
                      , smallcheck
                      , tagged
                      , text
+                     , union
                      , unordered-containers
                      , validationt >= 0.1.0.1
                      , vector

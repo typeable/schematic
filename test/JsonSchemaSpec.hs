@@ -1,6 +1,7 @@
 module JsonSchemaSpec (spec, main) where
 
 import Data.Aeson as J
+import Data.Maybe
 import Data.Proxy
 import Data.Schematic
 import Data.Vinyl
@@ -34,7 +35,7 @@ exampleData = ReprObject objectData
 spec :: Spec
 spec = do
   it "validates simple schema" $ do
-    let schema = D4.SchemaWithURI (toJsonSchema (Proxy @SchemaExample)) Nothing
+    let schema = D4.SchemaWithURI (fromJust $ toJsonSchema (Proxy @SchemaExample)) Nothing
     fetchHTTPAndValidate schema (toJSON exampleData) >>= \case
       Left _ -> fail "failed to validate test example"
       Right _ -> pure ()

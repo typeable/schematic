@@ -5,7 +5,7 @@
 
 module Data.Schematic.Schema where
 
-import           Control.Applicative ()
+import           Control.Applicative ((<|>))
 import           Control.Monad
 import           Data.Aeson as J
 import           Data.Aeson.Types as J
@@ -14,10 +14,11 @@ import           Data.Kind
 import           Data.Maybe
 import           Data.Schematic.Instances ()
 import           Data.Scientific
-import           Data.Singletons.Prelude.List hiding (All)
+import           Data.Singletons.Prelude.List hiding (All, Union)
 import           Data.Singletons.TH
 import           Data.Singletons.TypeLits
 import           Data.Text as T
+import           Data.Union
 import           Data.Vector as V
 import           Data.Vinyl hiding (Dict)
 import qualified Data.Vinyl.TypeLevel as V
@@ -205,6 +206,7 @@ data Schema
   | SchemaArray [ArrayConstraint] Schema
   | SchemaNull
   | SchemaOptional Schema
+  | SchemaUnion [Schema]
   deriving (Generic)
 
 data DemotedSchema
@@ -215,6 +217,7 @@ data DemotedSchema
   | DSchemaArray [DemotedArrayConstraint] DemotedSchema
   | DSchemaNull
   | DSchemaOptional DemotedSchema
+  | DSchemaUnion [DemotedSchema]
   deriving (Generic)
 
 data instance Sing (schema :: Schema) where
@@ -225,6 +228,7 @@ data instance Sing (schema :: Schema) where
   SSchemaObject :: Sing fields -> Sing ('SchemaObject fields)
   SSchemaOptional :: Sing s -> Sing ('SchemaOptional s)
   SSchemaNull :: Sing 'SchemaNull
+  SSchemaUnion :: Sing ss -> Sing ('SchemaUnion ss)
 
 instance SingI sl => SingI ('SchemaText sl) where
   sing = SSchemaText sing
@@ -240,6 +244,8 @@ instance SingI stl => SingI ('SchemaObject stl) where
   sing = SSchemaObject sing
 instance SingI s => SingI ('SchemaOptional s) where
   sing = SSchemaOptional sing
+instance SingI s => SingI ('SchemaUnion s) where
+  sing = SSchemaUnion sing
 
 instance Eq (Sing ('SchemaText cs)) where _ == _ = True
 instance Eq (Sing ('SchemaNumber cs)) where _ == _ = True
@@ -248,6 +254,7 @@ instance Eq (Sing 'SchemaBoolean) where _ == _ = True
 instance Eq (Sing ('SchemaArray as s)) where _ == _ = True
 instance Eq (Sing ('SchemaObject cs)) where _ == _ = True
 instance Eq (Sing ('SchemaOptional s)) where _ == _ = True
+instance Eq (Sing ('SchemaUnion s)) where _ == _ = True
 
 instance SingKind Schema where
   type Demote Schema = DemotedSchema
@@ -258,12 +265,8 @@ instance SingKind Schema where
     SSchemaArray cs s -> DSchemaArray (fromSing cs) (fromSing s)
     SSchemaOptional s -> DSchemaOptional $ fromSing s
     SSchemaNull -> DSchemaNull
-    SSchemaObject cs -> let
-      dem :: Sing (s :: [(Symbol, Schema)]) -> [(Text, DemotedSchema)]
-      dem SNil              = []
-      dem (SCons (STuple2 ss ssch) fs) = withKnownSymbol ss
-        $ (T.pack (symbolVal ss), fromSing ssch) : dem fs
-      in DSchemaObject $ dem cs
+    SSchemaObject cs -> DSchemaObject $ fromSing cs
+    SSchemaUnion ss -> DSchemaUnion $ fromSing ss
   toSing = \case
     DSchemaText cs -> case toSing cs of
       SomeSing scs -> SomeSing $ SSchemaText scs
@@ -277,6 +280,8 @@ instance SingKind Schema where
     DSchemaNull -> SomeSing SSchemaNull
     DSchemaObject cs -> case toSing cs of
       SomeSing scs -> SomeSing $ SSchemaObject scs
+    DSchemaUnion ss -> case toSing ss of
+      SomeSing sss -> SomeSing $ SSchemaUnion sss
 
 data FieldRepr :: (Symbol, Schema) -> Type where
   FieldRepr
@@ -322,6 +327,16 @@ data JsonRepr :: Schema -> Type where
   ReprArray :: V.Vector (JsonRepr s) -> JsonRepr ('SchemaArray cs s)
   ReprObject :: Rec FieldRepr fs -> JsonRepr ('SchemaObject fs)
   ReprOptional :: Maybe (JsonRepr s) -> JsonRepr ('SchemaOptional s)
+  ReprUnion :: Union JsonRepr s -> JsonRepr ('SchemaUnion ss)
+
+-- | Move to the different package
+type family UnionAll (f :: u -> *) (rs :: [u]) (c :: * -> Constraint) :: Constraint where
+  UnionAll f '[] c = ()
+  UnionAll f (r ': rs) c = (c (f r), UnionAll f rs c)
+
+-- instance (UnionAll f as Show) => Show (Union f as) where
+--   show (This fa) = "This " P.++ show fa
+--   show (That u)  = "That " P.++ show u
 
 instance Show (JsonRepr ('SchemaText cs)) where
   show (ReprText t) = "ReprText " P.++ show t
@@ -339,6 +354,8 @@ instance V.RecAll FieldRepr fs Show => Show (JsonRepr ('SchemaObject fs)) where
 
 instance Show (JsonRepr s) => Show (JsonRepr ('SchemaOptional s)) where
   show (ReprOptional s) = "ReprOptional " P.++ show s
+
+deriving instance UnionAll f as Show => Show (Union f as)
 
 instance (Monad m, Serial m Text)
   => Serial m (JsonRepr ('SchemaText cs)) where
@@ -388,6 +405,24 @@ fromOptional
   -> Parser (Maybe (JsonRepr s))
 fromOptional _ = parseJSON
 
+parseUnion
+  :: FromJSON (JsonRepr ('SchemaUnion ss))
+  => sing (ss :: [Schema])
+  -> Value
+  -> Parser (JsonRepr ('SchemaUnion ss))
+parseUnion _ val = parseJSON val
+
+instance FromJSON (Union JsonRepr '[]) where
+  parseJSON = fail "empty union"
+
+instance (SingI a, FromJSON (Union JsonRepr as)) => FromJSON (Union JsonRepr (a ': as)) where
+  parseJSON val = (This <$> parseJSON val)
+    <|> (That <$> (parseJSON val :: Parser (Union JsonRepr as)))
+
+instance ToJSON (Union JsonRepr as) where
+  toJSON (This fa) = toJSON fa
+  toJSON (That u)  = toJSON u
+
 instance SingI schema => J.FromJSON (JsonRepr schema) where
   parseJSON value = case sing :: Sing schema of
     SSchemaText _          -> withText "String" (pure . ReprText) value
@@ -427,8 +462,10 @@ instance SingI schema => J.FromJSON (JsonRepr schema) where
             SSchemaOptional so -> case H.lookup fieldName h of
               Just v -> withSingI so $ FieldRepr <$> parseJSON v
               Nothing -> fail "schemaoptional"
+            SSchemaUnion ss -> withSingI ss $ FieldRepr <$> parseUnion ss value
           (fieldRepr :&) <$> demoteFields tl h
       ReprObject <$> withObject "Object" (demoteFields fs) value
+    SSchemaUnion ss -> parseUnion ss value
 
 instance J.ToJSON (JsonRepr a) where
   toJSON ReprNull         = J.Null
@@ -449,6 +486,7 @@ instance J.ToJSON (JsonRepr a) where
       fold = \case
         RNil                   -> []
         fr@(FieldRepr _) :& tl -> (extract fr) : fold tl
+  toJSON (ReprUnion u) = toJSON u
 
 class FalseConstraint a
 

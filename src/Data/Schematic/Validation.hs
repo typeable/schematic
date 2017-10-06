@@ -13,6 +13,7 @@ import Data.Singletons.Prelude
 import Data.Singletons.TypeLits
 import Data.Text as T
 import Data.Traversable
+import Data.Union
 import Data.Vector as V
 import Data.Vinyl
 import Prelude as P
@@ -199,9 +200,16 @@ validateJsonRepr sschema dpath jr = case jr of
   ReprObject fs -> case sschema of
     SSchemaObject _ -> go fs
       where
-        go :: Rec FieldRepr (ts :: [ (Symbol, Schema) ] ) -> Validation ()
+        go :: Rec FieldRepr (ts :: [(Symbol, Schema)] ) -> Validation ()
         go RNil                     = pure ()
         go (f@(FieldRepr d) :& ftl) = do
           let newPath = dpath <> [DKey (knownFieldName f)]
           validateJsonRepr (knownFieldSchema f) newPath d
           go ftl
+  ReprUnion u -> case sschema of
+    SSchemaUnion ss -> case ss of
+      SNil -> vWarning $ mmSingleton (demotedPathToText dpath)
+        $ pure "union handling error, please report this as bug"
+      SCons s stl -> case u of
+        This x  -> validateJsonRepr s dpath x
+        That u' -> validateJsonRepr (SSchemaUnion ss) dpath (ReprUnion u')

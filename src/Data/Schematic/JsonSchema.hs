@@ -16,6 +16,7 @@ import Data.List.NonEmpty as NE
 import Data.Schematic.Schema as S
 import Data.Singletons
 import Data.Text
+import Data.Traversable
 import JSONSchema.Draft4.Schema as D4
 import JSONSchema.Validator.Draft4 as D4
 
@@ -62,31 +63,43 @@ toJsonSchema
   :: forall proxy schema
    . SingI schema
   => proxy (schema :: S.Schema)
-  -> D4.Schema
-toJsonSchema _ = (toJsonSchema' $ fromSing (sing :: Sing schema))
-  { _schemaVersion = pure draft4 }
+  -> Maybe D4.Schema
+toJsonSchema _ = do
+  js <- toJsonSchema' $ fromSing (sing :: Sing schema)
+  pure $ js { _schemaVersion = pure draft4 }
 
 toJsonSchema'
   :: DemotedSchema
-  -> D4.Schema
+  -> Maybe D4.Schema
 toJsonSchema' = \case
   DSchemaText tcs ->
-    execState (traverse_ textConstraint tcs) $ emptySchema
+    pure $ execState (traverse_ textConstraint tcs) $ emptySchema
       { _schemaType = pure $ TypeValidatorString D4.SchemaString }
   DSchemaNumber ncs ->
-    execState (traverse_ numberConstraint ncs) $ emptySchema
+    pure $ execState (traverse_ numberConstraint ncs) $ emptySchema
       { _schemaType = pure $ TypeValidatorString D4.SchemaNumber }
-  DSchemaBoolean -> emptySchema
-      { _schemaType = pure $ TypeValidatorString D4.SchemaBoolean }
-  DSchemaObject objs -> emptySchema
-      { _schemaType = pure $ TypeValidatorString D4.SchemaObject
-      , _schemaProperties = pure $ H.fromList $ (\(n,s) -> (n, toJsonSchema' s))
-        <$> objs }
-  DSchemaArray acs sch ->
-    execState (traverse_ arrayConstraint acs) $ emptySchema
-      { _schemaType = pure $ TypeValidatorString D4.SchemaArray
-      , _schemaItems = pure $ ItemsArray [toJsonSchema' sch] }
-  DSchemaNull -> emptySchema
-      { _schemaType = pure $ TypeValidatorString D4.SchemaNull }
-  DSchemaOptional sch -> emptySchema
-      { _schemaOneOf = pure $ toJsonSchema' DSchemaNull :| [toJsonSchema' sch] }
+  DSchemaBoolean -> pure $ emptySchema
+    { _schemaType = pure $ TypeValidatorString D4.SchemaBoolean }
+  DSchemaObject objs -> do
+    res <- for objs $ \(n,s) -> do
+      s' <- toJsonSchema' s
+      pure (n, s')
+    pure $ emptySchema
+      { _schemaType       = pure $ TypeValidatorString D4.SchemaObject
+      , _schemaProperties = pure $ H.fromList res }
+  DSchemaArray acs sch -> do
+    res <- toJsonSchema' sch
+    pure $ execState (traverse_ arrayConstraint acs) $ emptySchema
+      { _schemaType  = pure $ TypeValidatorString D4.SchemaArray
+      , _schemaItems = pure $ ItemsArray [res] }
+  DSchemaNull -> pure $ emptySchema
+    { _schemaType = pure $ TypeValidatorString D4.SchemaNull }
+  DSchemaOptional sch -> do
+    snull <- toJsonSchema' DSchemaNull
+    sres <- toJsonSchema' sch
+    pure $ emptySchema { _schemaOneOf = pure (snull :| [sres]) }
+  DSchemaUnion sch -> do
+    schemaUnion <- traverse toJsonSchema' sch >>= \case
+      [] -> Nothing
+      x  -> Just x
+    pure $ emptySchema { _schemaAnyOf = pure $ NE.fromList schemaUnion }
