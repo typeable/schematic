@@ -327,7 +327,7 @@ data JsonRepr :: Schema -> Type where
   ReprArray :: V.Vector (JsonRepr s) -> JsonRepr ('SchemaArray cs s)
   ReprObject :: Rec FieldRepr fs -> JsonRepr ('SchemaObject fs)
   ReprOptional :: Maybe (JsonRepr s) -> JsonRepr ('SchemaOptional s)
-  ReprUnion :: Union JsonRepr s -> JsonRepr ('SchemaUnion ss)
+  ReprUnion :: Union JsonRepr (h ': tl) -> JsonRepr ('SchemaUnion (h ': tl))
 
 -- | Move to the different package
 type family UnionAll (f :: u -> *) (rs :: [u]) (c :: * -> Constraint) :: Constraint where

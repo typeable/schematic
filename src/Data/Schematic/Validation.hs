@@ -206,10 +206,21 @@ validateJsonRepr sschema dpath jr = case jr of
           let newPath = dpath <> [DKey (knownFieldName f)]
           validateJsonRepr (knownFieldSchema f) newPath d
           go ftl
-  ReprUnion u -> case sschema of
-    SSchemaUnion ss -> case ss of
-      SNil -> vWarning $ mmSingleton (demotedPathToText dpath)
-        $ pure "union handling error, please report this as bug"
-      SCons s stl -> case u of
-        This x  -> validateJsonRepr s dpath x
-        That u' -> validateJsonRepr (SSchemaUnion ss) dpath (ReprUnion u')
+  ReprUnion u -> pure () -- case sschema of
+    -- SSchemaUnion ss -> case ss of
+    --   SNil -> do
+    --     let JSONPath path = demotedPathToText dpath
+    --     void $ vWarning $ mmSingleton path
+    --       $ pure "union handling error, please report this as bug"
+    --   SCons s stl -> case umatch' s u of
+    --     Nothing -> case urestrict u of
+    --       Nothing -> fail "impossible to urestrict union, please report this as a bug"
+    --       Just x -> do
+    --         let
+    --           toUnion :: Sing ss -> Union JsonRepr ss -> JsonRepr ('SchemaUnion ss)
+    --           toUnion _ = ReprUnion
+    --         validateJsonRepr (SSchemaUnion stl) dpath $ toUnion stl x
+    --     Just x  -> validateJsonRepr s dpath x
+
+umatch' :: UElem a as i => Sing a -> Union f as -> Maybe (f a)
+umatch' _ u = umatch u
