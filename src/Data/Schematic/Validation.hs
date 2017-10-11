@@ -207,7 +207,7 @@ validateJsonRepr sschema dpath jr = case jr of
           let newPath = dpath <> [DKey (knownFieldName f)]
           validateJsonRepr (knownFieldSchema f) newPath d
           go ftl
-  ReprUnion u -> pure ()
+  ReprUnion _ -> pure () -- FIXME
     -- case sschema of
     --   SSchemaUnion ss -> case ss of
     --     SCons s stl -> case umatch' s u of

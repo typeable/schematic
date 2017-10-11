@@ -18,19 +18,11 @@ type FieldsSchema =
 
 type SchemaExample = 'SchemaObject FieldsSchema
 
-arrayData :: JsonRepr ArraySchema
-arrayData = ReprArray [ReprNumber 13]
-
-arrayField :: FieldRepr ArrayField
-arrayField = FieldRepr arrayData
-
-objectData :: Rec FieldRepr FieldsSchema
-objectData = FieldRepr arrayData
-  :& FieldRepr (ReprOptional (Just (ReprText "foo")))
-  :& RNil
-
 exampleData :: JsonRepr SchemaExample
-exampleData = ReprObject objectData
+exampleData = withRepr @SchemaExample $
+       field @"foo" [ReprNumber 13]
+  <:&> field @"bar" (pure (ReprText "foo"))
+  <:&> pure RNil
 
 spec :: Spec
 spec = do

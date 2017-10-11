@@ -331,20 +331,9 @@ data JsonRepr :: Schema -> Type where
   ReprArray :: V.Vector (JsonRepr s) -> JsonRepr ('SchemaArray cs s)
   ReprObject :: Rec FieldRepr fs -> JsonRepr ('SchemaObject fs)
   ReprOptional :: Maybe (JsonRepr s) -> JsonRepr ('SchemaOptional s)
-  ReprUnion
-    -- :: USubsets (h ': tl)
-    :: Union JsonRepr (h ': tl)
-    -> JsonRepr ('SchemaUnion (h ': tl))
+  ReprUnion :: Union JsonRepr (h ': tl) -> JsonRepr ('SchemaUnion (h ': tl))
 
 -- | Move to the union package
-type family UnionAll (f :: u -> *) (rs :: [u]) (c :: * -> Constraint) :: Constraint where
-  UnionAll f '[] c = ()
-  UnionAll f (r ': rs) c = (c (f r), UnionAll f rs c)
-
--- instance (UnionAll f as Show) => Show (Union f as) where
---   show (This fa) = "This " P.++ show fa
---   show (That u)  = "That " P.++ show u
-
 instance Show (JsonRepr ('SchemaText cs)) where
   show (ReprText t) = "ReprText " P.++ show t
 
@@ -361,8 +350,6 @@ instance V.RecAll FieldRepr fs Show => Show (JsonRepr ('SchemaObject fs)) where
 
 instance Show (JsonRepr s) => Show (JsonRepr ('SchemaOptional s)) where
   show (ReprOptional s) = "ReprOptional " P.++ show s
-
-deriving instance UnionAll f as Show => Show (Union f as)
 
 instance (Monad m, Serial m Text)
   => Serial m (JsonRepr ('SchemaText cs)) where

@@ -14,8 +14,8 @@ type SchemaExample = 'SchemaObject
   '[ '("foo", 'SchemaArray '[ 'AEq 1] ('SchemaNumber '[ 'NGt 10]))
    , '("bar", 'SchemaOptional ('SchemaText '[ 'TEnum '["foo", "bar"]]))]
 
-example :: JsonRepr SchemaExample
-example = withRepr @SchemaExample $
+jsonExample :: JsonRepr SchemaExample
+jsonExample = withRepr @SchemaExample $
        field @"bar" (Just $ ReprText "bar")
   <:&> field @"foo" [ReprNumber 12]
   <:&> pure RNil
@@ -26,12 +26,6 @@ type TestMigration =
      , 'Diff '[ 'PKey "foo" ] ('Update ('SchemaNumber '[])) ]
 
 type VS = 'Versioned SchemaExample '[ TestMigration ]
-
-jsonExample :: JsonRepr SchemaExample
-jsonExample = ReprObject $
-  FieldRepr (ReprArray [ReprNumber 12])
-    :& FieldRepr (ReprOptional (Just (ReprText "bar")))
-    :& RNil
 
 schemaJson :: ByteString
 schemaJson = "{\"foo\": [13], \"bar\": null}"

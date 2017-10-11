@@ -3,18 +3,12 @@
 module HelpersSpec (spec, main) where
 
 import Control.Lens
-import Data.Aeson
-import Data.ByteString.Char8 as C8
-import Data.ByteString.Lazy as BL
 import Data.ByteString.Lazy.Lens
 import Data.Foldable
-import Data.Functor.Identity
 import Data.Monoid
-import Data.Proxy
 import Data.Schematic
 import Data.Text as T
 import Data.Text.Lens
-import Data.Vinyl
 import Test.Hspec
 
 

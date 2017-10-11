@@ -1,7 +1,6 @@
 module LensSpec (spec, main) where
 
 import Control.Lens
-import Data.Kind
 import Data.Proxy
 import Data.Schematic
 import Data.Vinyl
@@ -15,8 +14,6 @@ type ArrayField = '("foo", ArraySchema)
 type FieldsSchema =
   '[ '("bar", 'SchemaOptional ('SchemaText '[ 'TEnum '["foo", "bar"]])), ArrayField]
 
-type SchemaExample = 'SchemaObject FieldsSchema
-
 arrayData :: JsonRepr ArraySchema
 arrayData = ReprArray [ReprNumber 13]
 
@@ -27,9 +24,6 @@ objectData :: Rec FieldRepr FieldsSchema
 objectData = FieldRepr (ReprOptional (Just (ReprText "foo")))
   :& FieldRepr arrayData
   :& RNil
-
-exampleData :: JsonRepr SchemaExample
-exampleData = ReprObject objectData
 
 type BigRecord = Rec FieldRepr
   '[ '("f1", 'SchemaNumber '[])
