@@ -10,11 +10,15 @@ import Data.Schematic
 import Data.Vinyl
 import Test.Hspec
 
+type SchemaExample = 'SchemaObject
+  '[ '("foo", 'SchemaArray '[ 'AEq 1] ('SchemaNumber '[ 'NGt 10]))
+   , '("bar", 'SchemaOptional ('SchemaText '[ 'TEnum '["foo", "bar"]]))]
 
-type SchemaExample
-  = 'SchemaObject
-    '[ '("foo", 'SchemaArray '[ 'AEq 1] ('SchemaNumber '[ 'NGt 10]))
-     , '("bar", 'SchemaOptional ('SchemaText '[ 'TEnum '["foo", "bar"]]))]
+example :: JsonRepr SchemaExample
+example = withRepr @SchemaExample $
+       field @"bar" (Just $ ReprText "bar")
+  <:&> field @"foo" [ReprNumber 12]
+  <:&> pure RNil
 
 type TestMigration =
   'Migration "test_revision"

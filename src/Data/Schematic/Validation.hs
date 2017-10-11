@@ -16,6 +16,7 @@ import Data.Traversable
 import Data.Union
 import Data.Vector as V
 import Data.Vinyl
+import Data.Vinyl.TypeLevel
 import Prelude as P
 import Text.Regex.TDFA
 
@@ -206,21 +207,43 @@ validateJsonRepr sschema dpath jr = case jr of
           let newPath = dpath <> [DKey (knownFieldName f)]
           validateJsonRepr (knownFieldSchema f) newPath d
           go ftl
-  ReprUnion u -> pure () -- case sschema of
-    -- SSchemaUnion ss -> case ss of
-    --   SNil -> do
-    --     let JSONPath path = demotedPathToText dpath
-    --     void $ vWarning $ mmSingleton path
-    --       $ pure "union handling error, please report this as bug"
-    --   SCons s stl -> case umatch' s u of
-    --     Nothing -> case urestrict u of
-    --       Nothing -> fail "impossible to urestrict union, please report this as a bug"
-    --       Just x -> do
-    --         let
-    --           toUnion :: Sing ss -> Union JsonRepr ss -> JsonRepr ('SchemaUnion ss)
-    --           toUnion _ = ReprUnion
-    --         validateJsonRepr (SSchemaUnion stl) dpath $ toUnion stl x
-    --     Just x  -> validateJsonRepr s dpath x
+  ReprUnion u -> pure ()
+    -- case sschema of
+    --   SSchemaUnion ss -> case ss of
+    --     SCons s stl -> case umatch' s u of
+    --       Nothing -> case urestrict u of
+    --         Nothing ->
+    --           fail "impossible to produce subUnion, please report this as a bug"
+    --         Just x -> do
+    --           let
+    --             JSONPath path = demotedPathToText dpath
+    --           case stl of
+    --             SNil -> void $ vWarning $ mmSingleton path
+    --               $ pure "union handling error, please report this as bug"
+    --             SCons s' stl' ->
+    --               validateJsonRepr (SSchemaUnion (SCons s' stl')) dpath
+    --                 $ toUnion (SCons s' stl') x
+    --       Just x  -> validateJsonRepr s dpath x
+
+-- subUnion
+--   :: Sing (s ': stl)
+--   -> (  USubset stl (s ': stl) (RImage stl (s ': stl))
+--      => Union f (s ': stl)
+--      -> Maybe (Union f stl) )
+-- subUnion (SCons s stl) = urestrict
+
+-- withUSubset
+--   :: Sing (s ': stl)
+--   -> (USubset stl (s ': stl) (RImage stl (s ': stl)) => Maybe (Union f stl))
+--   -> Maybe (Union f stl)
+-- withUSubset (SCons s stl) r = r
+
+toUnion
+  :: USubset s' (s ': ss) (RImage s' (s ': ss))
+  => Sing (s ': ss)
+  -> Union JsonRepr s'
+  -> JsonRepr ('SchemaUnion (s ': ss))
+toUnion _ = ReprUnion . urelax
 
 umatch' :: UElem a as i => Sing a -> Union f as -> Maybe (f a)
 umatch' _ u = umatch u

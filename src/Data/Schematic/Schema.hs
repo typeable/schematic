@@ -319,6 +319,10 @@ instance
   => Serial m (FieldRepr '(name, schema)) where
   series = FieldRepr <$> series
 
+type family USubsets (u :: [k]) :: Constraint where
+  USubsets '[] = ()
+  USubsets (h ': tl) = (USubset tl (h ': tl) (V.RImage tl (h ': tl)), USubsets tl)
+
 data JsonRepr :: Schema -> Type where
   ReprText :: Text -> JsonRepr ('SchemaText cs)
   ReprNumber :: Scientific -> JsonRepr ('SchemaNumber cs)
@@ -327,9 +331,12 @@ data JsonRepr :: Schema -> Type where
   ReprArray :: V.Vector (JsonRepr s) -> JsonRepr ('SchemaArray cs s)
   ReprObject :: Rec FieldRepr fs -> JsonRepr ('SchemaObject fs)
   ReprOptional :: Maybe (JsonRepr s) -> JsonRepr ('SchemaOptional s)
-  ReprUnion :: Union JsonRepr (h ': tl) -> JsonRepr ('SchemaUnion (h ': tl))
+  ReprUnion
+    -- :: USubsets (h ': tl)
+    :: Union JsonRepr (h ': tl)
+    -> JsonRepr ('SchemaUnion (h ': tl))
 
--- | Move to the different package
+-- | Move to the union package
 type family UnionAll (f :: u -> *) (rs :: [u]) (c :: * -> Constraint) :: Constraint where
   UnionAll f '[] c = ()
   UnionAll f (r ': rs) c = (c (f r), UnionAll f rs c)

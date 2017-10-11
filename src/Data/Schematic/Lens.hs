@@ -98,8 +98,7 @@ type Iso s t a b = forall p f. (Profunctor p, Functor f) => p a (f b) -> p s (f 
 type Iso' s a = Iso s s a a
 
 iso
-  :: (s -> a)
-  -> (b -> t)
+  :: (s -> a) -> (b -> t)
   -> Iso s t a b
 iso sa bt = dimap sa (fmap bt)
 {-# INLINE iso #-}
