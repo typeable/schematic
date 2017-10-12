@@ -40,23 +40,23 @@ class i ~ FIndex fn rs => FElem (fn :: Symbol) (rs :: [(Symbol, Schema)]) (i :: 
   flens
     :: Functor g
     => proxy fn
-    -> (FieldRepr '(fn, (ByField fn rs i)) -> g (FieldRepr '(fn, (ByField fn rs i))))
-    -> Rec FieldRepr rs
-    -> g (Rec FieldRepr rs)
+    -> (f '(fn, (ByField fn rs i)) -> g (f '(fn, (ByField fn rs i))))
+    -> Rec f rs
+    -> g (Rec f rs)
 
   -- | For Vinyl users who are not using the @lens@ package, we provide a getter.
   fget
     :: proxy fn
-    -> Rec FieldRepr rs
-    -> FieldRepr '(fn, (ByField fn rs i))
+    -> Rec f rs
+    -> f '(fn, (ByField fn rs i))
 
   -- | For Vinyl users who are not using the @lens@ package, we also provide a
   -- setter. In general, it will be unambiguous what field is being written to,
   -- and so we do not take a proxy argument here.
   fput
-    :: FieldRepr '(fn, ByField fn rs i)
-    -> Rec FieldRepr rs
-    -> Rec FieldRepr rs
+    :: f '(fn, ByField fn rs i)
+    -> Rec f rs
+    -> Rec f rs
 
 instance FElem fn ('(fn, r) ': rs) 'Z where
   type ByField fn ('(fn, r) ': rs) 'Z = r
@@ -115,24 +115,24 @@ class is ~ FImage rs ss
   -- > fsubset :: Lens' (Rec FieldRepr ss) (Rec FieldRepr rs)
   fsubset
     :: Functor g
-    => (Rec FieldRepr rs -> g (Rec FieldRepr rs))
-    -> Rec FieldRepr ss
-    -> g (Rec FieldRepr ss)
+    => (Rec f rs -> g (Rec f rs))
+    -> Rec f ss
+    -> g (Rec f ss)
 
   -- | The getter of the 'fsubset' lens is 'fcast', which takes a larger record
   -- to a smaller one by forgetting fields.
   fcast
-    :: Rec FieldRepr ss
-    -> Rec FieldRepr rs
+    :: Rec f ss
+    -> Rec f rs
   fcast = getConst . fsubset Const
   {-# INLINE fcast #-}
 
   -- | The setter of the 'fsubset' lens is 'freplace', which allows a slice of
   -- a record to be replaced with different values.
   freplace
-    :: Rec FieldRepr rs
-    -> Rec FieldRepr ss
-    -> Rec FieldRepr ss
+    :: Rec f rs
+    -> Rec f ss
+    -> Rec f ss
   freplace rs = getIdentity . fsubset (\_ -> Identity rs)
   {-# INLINE freplace #-}
 
@@ -145,7 +145,7 @@ instance
   , FSubset rs ss is) => FSubset ( '(fn,s) ': rs) ss (i ': is) where
   fsubset = lens (\ss -> fget Proxy ss :& fcast ss) set
     where
-      set :: Rec FieldRepr ss -> Rec FieldRepr ( '(fn,s) ': rs) -> Rec FieldRepr ss
+      set :: Rec f ss -> Rec f ( '(fn,s) ': rs) -> Rec f ss
       set ss (r :& rs) = fput r $ freplace rs ss
 
 -- A bunch of @Iso@morphisms

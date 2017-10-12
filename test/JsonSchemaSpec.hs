@@ -20,9 +20,9 @@ type SchemaExample = 'SchemaObject FieldsSchema
 
 exampleData :: JsonRepr SchemaExample
 exampleData = withRepr @SchemaExample $
-       field @"foo" [ReprNumber 13]
-  <:&> field @"bar" (pure (ReprText "foo"))
-  <:&> pure RNil
+     field @"foo" [ReprNumber 13]
+  :& field @"bar" (pure (ReprText "foo"))
+  :& RNil
 
 spec :: Spec
 spec = do

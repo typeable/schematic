@@ -21,15 +21,13 @@ module Data.Schematic
   , ParseResult(..)
   , withRepr
   , field
-  , (<:&>)
   ) where
 
-import           Control.Applicative
 import           Control.Monad.Validation
 import           Data.Aeson as J
 import           Data.Aeson.Types as J
 import           Data.ByteString.Lazy as BL
-import           Data.Functor.Identity
+import           Data.Functor.Identity as F
 import           Data.Kind
 import           Data.Schematic.Helpers
 import           Data.Schematic.JsonSchema
@@ -39,13 +37,14 @@ import           Data.Schematic.Schema
 import           Data.Schematic.Utils
 import           Data.Schematic.Validation
 import           Data.Scientific
-import           Data.Singletons.Prelude
+import           Data.Singletons.Prelude hiding ((:.))
 import           Data.Singletons.TypeLits
 import           Data.Tagged
 import           Data.Text as T
 import           Data.Union
 import qualified Data.Vector as V
-import           Data.Vinyl
+import           Data.Vinyl as V
+import           Data.Vinyl.Functor
 
 
 parseAndValidateJson
@@ -131,7 +130,7 @@ decodeAndValidateVersionedWithMList _ mlist bs = case decode bs of
 
 decodeAndValidateVersionedWithPureMList
   :: proxy versioned
-  -> MList Identity (MapSnd (AllVersions versioned))
+  -> MList F.Identity (MapSnd (AllVersions versioned))
   -> BL.ByteString
   -> ParseResult (JsonRepr (Head (MapSnd (AllVersions versioned))))
 decodeAndValidateVersionedWithPureMList a b c =
@@ -141,20 +140,11 @@ decodeAndValidateVersionedWithPureMList a b c =
 
 type Constructor a
   = forall b. FSubset (FieldsOf a) b (FImage (FieldsOf a) b)
-  => Tagged (FieldsOf a) (Rec FieldRepr b)
+  => Rec (Tagged (FieldsOf a) :. FieldRepr) b
   -> JsonRepr ('SchemaObject (FieldsOf a))
 
 withRepr :: Constructor a
-withRepr = ReprObject . unTagged . fmap fcast
-
-(<:&>)
-  :: Applicative m
-  => m (FieldRepr fns)
-  -> m (Rec FieldRepr b)
-  -> m (Rec FieldRepr (fns ': b))
-(<:&>) = liftA2 (:&)
-
-infixr 7 <:&>
+withRepr = ReprObject . rmap (unTagged . getCompose) . fcast
 
 class Representable s where
   type Repr s :: Type
@@ -194,7 +184,7 @@ type family FieldsOf (s :: Schema) :: [(Symbol, Schema)] where
 type FieldConstructor fn =
   forall fs. (Representable (ByField fn fs (FIndex fn fs)))
   => Repr (ByField fn fs (FIndex fn fs))
-  -> Tagged fs (FieldRepr '(fn, (ByField fn fs (FIndex fn fs))))
+  -> (Tagged fs :. FieldRepr) '(fn, (ByField fn fs (FIndex fn fs)))
 
 field :: forall fn. KnownSymbol fn => FieldConstructor fn
-field = Tagged . construct (sing :: Sing fn) Proxy
+field = Compose . Tagged . construct (sing :: Sing fn) Proxy
