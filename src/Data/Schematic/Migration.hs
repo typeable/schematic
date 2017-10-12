@@ -4,6 +4,7 @@
 module Data.Schematic.Migration where
 
 import Data.Kind
+import Data.Tagged
 import Data.Schematic.Path
 import Data.Schematic.Schema
 import Data.Singletons.Prelude hiding (All)
@@ -138,12 +139,13 @@ data instance Sing (v :: Versioned) where
     -> Sing (ms :: [Migration]) -- a bunch of migrations
     -> Sing ('Versioned s ms)
 
+type DataMigration s m h = Tagged s (JsonRepr h -> m (JsonRepr s))
+
 data MList :: (* -> *) -> [Schema] -> Type where
   MNil :: (Monad m, SingI s, TopLevel s) => MList m '[s]
   (:&&)
     :: (TopLevel s, SingI s)
-    => proxy s
-    -> (JsonRepr h -> m (JsonRepr s))
+    => DataMigration s m h
     -> MList m (h ': tl)
     -> MList m (s ': h ': tl)
 

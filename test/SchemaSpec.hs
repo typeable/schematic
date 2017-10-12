@@ -7,6 +7,7 @@ import Data.ByteString.Lazy
 import Data.Functor.Identity
 import Data.Proxy
 import Data.Schematic
+import Data.Tagged
 import Data.Vinyl
 import Test.Hspec
 
@@ -65,9 +66,7 @@ spec = do
   it "validates versioned json with a migration list" $ do
     decodeAndValidateVersionedWithPureMList
       (Proxy @VS)
-      ((:&&)
-        (Proxy @(SchemaByRevision "test_revision" VS))
-        (const $ Identity topObject) MNil)
+      (Tagged (const $ Identity topObject) :&& MNil)
       schemaJson
         `shouldSatisfy` isValid
 

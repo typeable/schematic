@@ -18,7 +18,6 @@ import           Data.Vinyl
 import           Data.Vinyl.Functor
 
 
-
 type Constructor a
   = forall b. FSubset (FieldsOf a) b (FImage (FieldsOf a) b)
   => Rec (Tagged (FieldsOf a) :. FieldRepr) b

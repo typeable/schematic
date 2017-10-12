@@ -22,20 +22,21 @@ module Data.Schematic
   , field
   ) where
 
-import           Control.Monad.Validation
-import           Data.Aeson as J
-import           Data.Aeson.Types as J
-import           Data.ByteString.Lazy as BL
-import           Data.Functor.Identity as F
-import           Data.Schematic.DSL
-import           Data.Schematic.Helpers
-import           Data.Schematic.JsonSchema
-import           Data.Schematic.Lens
-import           Data.Schematic.Migration
-import           Data.Schematic.Schema
-import           Data.Schematic.Validation
-import           Data.Singletons.Prelude hiding ((:.))
-import           Data.Text as T
+import Control.Monad.Validation
+import Data.Aeson as J
+import Data.Aeson.Types as J
+import Data.ByteString.Lazy as BL
+import Data.Functor.Identity as F
+import Data.Schematic.DSL
+import Data.Schematic.Helpers
+import Data.Schematic.JsonSchema
+import Data.Schematic.Lens
+import Data.Schematic.Migration
+import Data.Schematic.Schema
+import Data.Schematic.Validation
+import Data.Singletons.Prelude hiding ((:.))
+import Data.Tagged
+import Data.Text as T
 
 
 parseAndValidateJson
@@ -85,7 +86,8 @@ parseAndValidateWithMList
   -> J.Value
   -> m (ParseResult (JsonRepr (Head revisions)))
 parseAndValidateWithMList MNil v = pure $ parseAndValidateJson v
-parseAndValidateWithMList ((:&&) p f tl) v = case parseAndValidateJsonBy p v of
+parseAndValidateWithMList (Tagged f :&& tl) v =
+  case parseAndValidateJsonBy Proxy v of
     Valid a           -> pure $ Valid a
     DecodingError _   -> do
       pr <- parseAndValidateWithMList tl v
