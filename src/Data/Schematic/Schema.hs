@@ -22,6 +22,7 @@ import           Data.Union
 import           Data.Vector as V
 import           Data.Vinyl hiding (Dict)
 import qualified Data.Vinyl.TypeLevel as V
+import           GHC.Exts
 import           GHC.Generics (Generic)
 import           GHC.TypeLits (SomeNat(..), SomeSymbol(..), someSymbolVal, someNatVal)
 import           Prelude as P
@@ -391,6 +392,22 @@ instance Eq (JsonRepr s) => Eq (JsonRepr ('SchemaArray as s)) where
 
 instance Eq (JsonRepr s) => Eq (JsonRepr ('SchemaOptional s)) where
   ReprOptional a == ReprOptional b = a == b
+
+instance IsList (JsonRepr ('SchemaArray cs s)) where
+  type Item (JsonRepr ('SchemaArray cs s)) = JsonRepr s
+  fromList = ReprArray . GHC.Exts.fromList
+  toList (ReprArray v) = GHC.Exts.toList v
+
+instance Num (JsonRepr ('SchemaNumber cs)) where
+  ReprNumber a + ReprNumber b = ReprNumber $ a + b
+  ReprNumber a - ReprNumber b = ReprNumber $ a - b
+  ReprNumber a * ReprNumber b = ReprNumber $ a * b
+  abs (ReprNumber a) = ReprNumber $ abs a
+  signum (ReprNumber a) = ReprNumber $ signum a
+  fromInteger = ReprNumber . fromIntegral
+
+instance IsString (JsonRepr ('SchemaText cs)) where
+  fromString = ReprText . fromString
 
 fromOptional
   :: SingI s
