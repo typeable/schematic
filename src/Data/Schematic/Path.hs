@@ -2,7 +2,6 @@ module Data.Schematic.Path where
 
 import Data.Foldable as F
 import Data.Monoid
-import Data.Schematic.Utils
 import Data.Singletons
 import Data.Singletons.Prelude
 import Data.Singletons.TypeLits
@@ -12,16 +11,8 @@ import Data.Text as T
 data PathSegment = Key Symbol | Ix Nat
 
 data instance Sing (jp :: PathSegment) where
-  SKey :: (KnownSymbol k, Known (Sing k)) => Sing (k :: Symbol) -> Sing ('Key k)
-  SIx :: (KnownNat n, Known (Sing n)) => Sing (n :: Nat) -> Sing ('Ix n)
-
-instance (KnownSymbol k, Known (Sing k))
-  => Known (Sing ('Key k)) where
-  known = SKey known
-
-instance (KnownNat n, Known (Sing n))
-  => Known (Sing ('Ix n)) where
-  known = SIx known
+  SKey :: (SingI k) => Sing (k :: Symbol) -> Sing ('Key k)
+  SIx :: (SingI n) => Sing (n :: Nat) -> Sing ('Ix n)
 
 data DemotedPathSegment = DKey Text | DIx Integer
   deriving (Show)
@@ -37,8 +28,8 @@ demotePath = go []
     go acc SNil = acc
     go acc (SCons p ps) = go (acc ++ [demote p]) ps
     demote :: Sing (ps :: PathSegment) -> DemotedPathSegment
-    demote (SKey s) = DKey $ T.pack $ symbolVal s
-    demote (SIx n) = DIx $ natVal n
+    demote (SKey s) = DKey $ T.pack $ withKnownSymbol s $ symbolVal s
+    demote (SIx n) = DIx $ withKnownNat n $ natVal n
 
 demotedPathToText :: [DemotedPathSegment] -> JSONPath
 demotedPathToText = JSONPath . F.foldl' renderPathSegment ""

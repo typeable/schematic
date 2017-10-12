@@ -14,6 +14,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Data.Schematic
+                     , Data.Schematic.DSL
                      , Data.Schematic.Instances
                      , Data.Schematic.JsonSchema
                      , Data.Schematic.Helpers
@@ -22,7 +23,6 @@ library
                      , Data.Schematic.Path
                      , Data.Schematic.Schema
                      , Data.Schematic.Validation
-                     , Data.Schematic.Utils
   ghc-options:       -Wall
   default-extensions:  ConstraintKinds
                      , DataKinds
@@ -70,6 +70,7 @@ library
                      , singletons >= 2.2
                      , smallcheck
                      , tagged
+                     , template-haskell
                      , text
                      , union
                      , unordered-containers

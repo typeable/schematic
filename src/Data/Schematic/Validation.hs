@@ -7,7 +7,6 @@ import Data.Functor.Identity
 import Data.Monoid
 import Data.Schematic.Path
 import Data.Schematic.Schema
-import Data.Schematic.Utils ()
 import Data.Scientific
 import Data.Singletons.Prelude
 import Data.Singletons.TypeLits
