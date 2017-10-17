@@ -1,5 +1,9 @@
 # Revision history for schematic
 
+## 0.4.0.0 -- 2017-10-17
+
+Object building DSL, more convenience helpers, MCons simplified with Tagged
+
 ## 0.3.2.0 -- 2017-10-02
 
 Fixed FIndex bug, added bunch of convenience isomorphism, re-exports.
