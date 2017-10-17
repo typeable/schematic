@@ -9,6 +9,7 @@ module Data.Schematic.Lens
   , FImage
   , FSubset(..)
   , obj
+  , arr
   , textRepr
   , numberRepr
   , boolRepr
@@ -181,3 +182,8 @@ optionalRepr = iso (\(FieldRepr (ReprOptional r)) -> r) (FieldRepr . ReprOptiona
 
 obj :: (SingI fields) => Iso' (JsonRepr ('SchemaObject fields)) (Rec FieldRepr fields)
 obj = iso (\(ReprObject r) -> r) ReprObject
+
+arr
+  :: (SingI schema)
+  => Iso' (JsonRepr ('SchemaArray cs schema)) (V.Vector (JsonRepr schema))
+arr = iso (\(ReprArray r) -> r) ReprArray

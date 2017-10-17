@@ -27,36 +27,41 @@ withRepr :: Constructor a
 withRepr = ReprObject . rmap (unTagged . getCompose) . fcast
 
 class Representable s where
-  type Repr s :: Type
-  construct :: Sing fn -> Proxy s -> Repr s -> FieldRepr '(fn, s)
+  constructField :: Sing fn -> Proxy s -> Repr s -> FieldRepr '(fn, s)
 
 instance SingI so => Representable ('SchemaObject so) where
-  type Repr ('SchemaObject so) = Rec FieldRepr so
-  construct sfn _ o = withKnownSymbol sfn $ FieldRepr $ ReprObject o
+  constructField sfn _ o = withKnownSymbol sfn $ FieldRepr $ ReprObject o
 
 instance (SingI cs, SingI sa) => Representable ('SchemaArray cs sa) where
-  type Repr ('SchemaArray cs sa) = V.Vector (JsonRepr sa)
-  construct sfn _ a = withKnownSymbol sfn $ FieldRepr $ ReprArray a
+  constructField sfn _ a = withKnownSymbol sfn $ FieldRepr $ ReprArray a
 
 instance SingI cs => Representable ('SchemaText cs) where
-  type Repr ('SchemaText cs) = Text
-  construct sfn _ t = withKnownSymbol sfn $ FieldRepr $ ReprText t
+  constructField sfn _ t = withKnownSymbol sfn $ FieldRepr $ ReprText t
 
 instance SingI cs => Representable ('SchemaNumber cs) where
-  type Repr ('SchemaNumber cs) = Scientific
-  construct sfn _ n = withKnownSymbol sfn $ FieldRepr $ ReprNumber n
+  constructField sfn _ n = withKnownSymbol sfn $ FieldRepr $ ReprNumber n
 
 instance Representable 'SchemaBoolean where
-  type Repr 'SchemaBoolean = Bool
-  construct sfn _ b = withKnownSymbol sfn $ FieldRepr $ ReprBoolean b
+  constructField sfn _ b = withKnownSymbol sfn $ FieldRepr $ ReprBoolean b
 
 instance SingI so => Representable ('SchemaOptional so) where
-  type Repr ('SchemaOptional so) = Maybe (JsonRepr so)
-  construct sfn _ o = withKnownSymbol sfn $ FieldRepr $ ReprOptional o
+  constructField sfn _ o = withKnownSymbol sfn $ FieldRepr $ ReprOptional o
 
 instance SingI (h ': tl) => Representable ('SchemaUnion (h ': tl)) where
-  type Repr ('SchemaUnion (h ': tl)) = Union JsonRepr (h ': tl)
-  construct sfn _ u = withKnownSymbol sfn $ FieldRepr $ ReprUnion u
+  constructField sfn _ u = withKnownSymbol sfn $ FieldRepr $ ReprUnion u
+
+construct :: Sing s -> Repr s -> JsonRepr s
+construct s r = case s of
+  SSchemaObject _          -> ReprObject r
+  SSchemaArray _ _         -> ReprArray r
+  SSchemaText _            -> ReprText r
+  SSchemaNumber _          -> ReprNumber r
+  SSchemaBoolean           -> ReprBoolean r
+  SSchemaOptional _        -> ReprOptional r
+  SSchemaNull              -> ReprNull
+  SSchemaUnion ss          -> case ss of
+    SNil      -> error "unconstructable union"
+    SCons _ _ -> ReprUnion r
 
 type family FieldsOf (s :: Schema) :: [(Symbol, Schema)] where
   FieldsOf ('SchemaObject fs) = fs
@@ -67,4 +72,13 @@ type FieldConstructor fn =
   -> (Tagged fs :. FieldRepr) '(fn, (ByField fn fs (FIndex fn fs)))
 
 field :: forall fn. KnownSymbol fn => FieldConstructor fn
-field = Compose . Tagged . construct (sing :: Sing fn) Proxy
+field = Compose . Tagged . constructField (sing :: Sing fn) Proxy
+
+type family Repr (s :: Schema) = (ty :: Type) where
+  Repr ('SchemaObject so) = Rec FieldRepr so
+  Repr ('SchemaArray cs sa) = V.Vector (JsonRepr sa)
+  Repr ('SchemaText cs) = Text
+  Repr ('SchemaNumber cs) = Scientific
+  Repr 'SchemaBoolean = Bool
+  Repr ('SchemaOptional so) = Maybe (JsonRepr so)
+  Repr ('SchemaUnion (h ': tl)) = Union JsonRepr (h ': tl)

@@ -4,8 +4,8 @@
 module Data.Schematic.Migration where
 
 import Data.Kind
-import Data.Tagged
 import Data.Schematic.Path
+import Data.Tagged
 import Data.Schematic.Schema
 import Data.Singletons.Prelude hiding (All)
 import Data.Singletons.TypeLits
