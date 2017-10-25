@@ -128,9 +128,3 @@ There are two ways of working with named fields in the objects:
 * Using the lens library: `set (flens (Proxy @"foo")) newFooVal objectData ^. flens (Proxy @"foo") == newFooVal`
 
 ## Export to json-schema (draft 4)
-
-
-## TODO
-
-* Overall user friendliness
-* Versioned http endpoints
