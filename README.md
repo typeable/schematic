@@ -178,7 +178,7 @@ Data migrations on the other hand are functions on the data itself. They transfo
 acceptable by one schema to values acceptable by another.
 Let's look at the situation when we have to add a field to a JSON Object of a current schema:
 
-```
+```haskell
 type SchemaExample = 'SchemaObject
   '[ '("foo", 'SchemaArray '[ 'AEq 1] ('SchemaNumber '[ 'NGt 10]))
    , '("bar", 'SchemaOptional ('SchemaText '[ 'TEnum '["foo", "bar"]]))]
