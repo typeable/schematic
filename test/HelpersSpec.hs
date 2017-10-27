@@ -1,5 +1,11 @@
 {-# OPTIONS_GHC -Wno-unticked-promoted-constructors #-}
 
+{-# LANGUAGE LambdaCase #-}
+
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module HelpersSpec (spec, main) where
 
 import Control.Lens

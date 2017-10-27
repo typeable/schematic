@@ -4,11 +4,15 @@
 module Data.Schematic.Migration where
 
 import Data.Kind
+import Data.Schematic.DSL
+import Data.Schematic.Lens
 import Data.Schematic.Path
 import Data.Tagged
 import Data.Schematic.Schema
-import Data.Singletons.Prelude hiding (All)
+import Data.Singletons.Prelude hiding (All, (:.))
 import Data.Singletons.TypeLits
+import Data.Vinyl
+import Data.Vinyl.Functor
 
 
 data Path
@@ -92,7 +96,8 @@ type family ElemOf (e :: k) (l :: [(a,k)]) :: Constraint where
 type family AllVersions (vd :: Versioned) :: [(Revision, Schema)] where
   AllVersions ('Versioned s ms) = Reverse (AllVersions' '[ '("initial", s) ] ms)
 
-type family AllVersions' (acc :: [(Revision, Schema)]) (ms :: [Migration]) = (r :: [(Revision, Schema)]) where
+type family AllVersions' (acc :: [(Revision, Schema)]) (ms :: [Migration])
+  = (r :: [(Revision, Schema)]) where
   AllVersions' acc '[]                       = acc
   AllVersions' ( '(rh, sh) ': tl ) (m ': ms) =
     AllVersions' ( '(rh, sh) ': ApplyMigration m sh ': tl ) ms
@@ -150,3 +155,25 @@ data MList :: (* -> *) -> [Schema] -> Type where
     -> MList m (s ': h ': tl)
 
 infixr 7 :&&
+
+migrateObject
+  :: forall m fs fh. (FSubset fs fs (FImage fs fs), Monad m)
+  => (Rec (Tagged fs :. FieldRepr) fh -> m (Rec (Tagged fs :. FieldRepr) fs))
+  -> Tagged ('SchemaObject fs) (JsonRepr ('SchemaObject fh) -> m (JsonRepr ('SchemaObject fs)))
+migrateObject f = Tagged $ \(ReprObject r) -> do
+  res <- f $ rmap (Compose . Tagged) r
+  pure $ withRepr @('SchemaObject fs) res
+
+shrinkObject
+  :: forall rs ss m
+  . ( Monad m, FSubset rs ss (FImage rs ss) )
+  => Tagged
+    ('SchemaObject rs)
+    (JsonRepr ('SchemaObject ss) -> m (JsonRepr ('SchemaObject rs)))
+shrinkObject = Tagged $ \(ReprObject r) -> pure $ ReprObject $ fcast r
+
+type family MapSnd (l :: [(a,k)]) = (r :: [k]) where
+  MapSnd '[] = '[]
+  MapSnd ( '(a, b) ': tl) = b ': MapSnd tl
+
+type MigrationList m vs = MList m (MapSnd (AllVersions vs))
