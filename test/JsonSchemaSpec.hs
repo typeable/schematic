@@ -1,3 +1,10 @@
+{-# LANGUAGE LambdaCase #-}
+
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module JsonSchemaSpec (spec, main) where
 
 import Data.Aeson as J

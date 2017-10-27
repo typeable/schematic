@@ -4,7 +4,6 @@ module Data.Schematic.DSL where
 
 import           Data.Kind
 import           Data.Schematic.Lens
-import           Data.Schematic.Migration
 import           Data.Schematic.Schema
 import           Data.Scientific
 import           Data.Singletons

@@ -1,7 +1,17 @@
 {-# OPTIONS_GHC -fprint-potential-instances #-}
 
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+
 module SchemaSpec (spec, main) where
 
+import Control.Lens
 import Data.Aeson
 import Data.ByteString.Lazy
 import Data.Functor.Identity
@@ -22,28 +32,42 @@ jsonExample = withRepr @SchemaExample
   :& field @"foo" [12]
   :& RNil
 
-type TestMigration =
-  'Migration "test_revision"
-    '[ 'Diff '[ 'PKey "bar" ] ('Update ('SchemaText '[]))
-     , 'Diff '[ 'PKey "foo" ] ('Update ('SchemaNumber '[])) ]
+type AddQuuz =
+  'Migration "add_field_quuz"
+   '[ 'Diff '[] ('AddKey "quuz" (SchemaNumber '[])) ]
 
-type VS = 'Versioned SchemaExample '[ TestMigration ]
+type DeleteQuuz =
+  'Migration "remove_field_quuz"
+    '[ 'Diff '[] ( 'DeleteKey "quuz") ]
+
+type SwapFields =
+  'Migration "swap_fields"
+    '[ 'Diff '[ 'PKey "bar" ] ('Update
+       ('SchemaArray '[ 'AEq 1] ('SchemaNumber '[ 'NGt 10])))
+     , 'Diff '[ 'PKey "foo" ] ('Update
+       ('SchemaOptional ('SchemaText '[ 'TEnum '["foo", "bar"]]))) ]
+
+type Migrations = '[ AddQuuz
+                   , DeleteQuuz ]
+                   -- , SwapFields ]
+
+type VersionedJson = 'Versioned SchemaExample Migrations
+
+migrationList :: MigrationList Identity VersionedJson
+migrationList
+  =   (migrateObject (\r -> Identity $ field @"quuz" 42 :& r))
+  :&& shrinkObject
+  -- :&& (migrateObject (\r -> Identity
+  --     $  field @"foo" (r ^. flens (Proxy @"bar") . _Just . optionalRepr)
+  --     :& field @"bar" (r ^. flens (Proxy @"foo") . arrayRepr)
+  --     :& RNil))
+  :&& MNil
 
 schemaJson :: ByteString
 schemaJson = "{\"foo\": [13], \"bar\": null}"
 
 schemaJson2 :: ByteString
 schemaJson2 = "{\"foo\": [3], \"bar\": null}"
-
-topObject
-  :: JsonRepr
-    ('SchemaObject
-      '[ '("foo", 'SchemaNumber '[])
-       , '("bar", 'SchemaText '[])])
-topObject = ReprObject $
-  FieldRepr (ReprNumber 42)
-    :& FieldRepr (ReprText "test")
-    :& RNil
 
 spec :: Spec
 spec = do
@@ -65,8 +89,8 @@ spec = do
   --     `shouldSatisfy` isValid
   it "validates versioned json with a migration list" $ do
     decodeAndValidateVersionedWithPureMList
-      (Proxy @VS)
-      (Tagged (const $ Identity topObject) :&& MNil)
+      (Proxy @VersionedJson)
+      migrationList
       schemaJson
         `shouldSatisfy` isValid
 

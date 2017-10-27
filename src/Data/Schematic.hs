@@ -107,10 +107,6 @@ decodeAndValidateJson bs = case decode bs of
   Nothing -> DecodingError "malformed json"
   Just x  -> parseAndValidateJson x
 
-type family MapSnd (l :: [(a,k)]) = (r :: [k]) where
-  MapSnd '[] = '[]
-  MapSnd ( '(a, b) ': tl) = b ': MapSnd tl
-
 decodeAndValidateVersionedWithMList
   :: Monad m
   => proxy versioned
