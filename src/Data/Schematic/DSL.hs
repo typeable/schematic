@@ -2,6 +2,7 @@
 
 module Data.Schematic.DSL where
 
+import           Data.Coerce
 import           Data.Kind
 import           Data.Schematic.Lens
 import           Data.Schematic.Schema
@@ -66,12 +67,15 @@ type family FieldsOf (s :: Schema) :: [(Symbol, Schema)] where
   FieldsOf ('SchemaObject fs) = fs
 
 type FieldConstructor fn =
-  forall fs. (Representable (ByField fn fs (FIndex fn fs)))
-  => Repr (ByField fn fs (FIndex fn fs))
+  forall fs rty ty
+    . ( Coercible rty ty
+    , rty ~ Repr (ByField fn fs (FIndex fn fs))
+    , Representable (ByField fn fs (FIndex fn fs)) )
+  => ty
   -> (Tagged fs :. FieldRepr) '(fn, (ByField fn fs (FIndex fn fs)))
 
 field :: forall fn. KnownSymbol fn => FieldConstructor fn
-field = Compose . Tagged . constructField (sing :: Sing fn) Proxy
+field = Compose . Tagged . constructField (sing :: Sing fn) Proxy . coerce
 
 type family Repr (s :: Schema) = (ty :: Type) where
   Repr ('SchemaObject so) = Rec FieldRepr so

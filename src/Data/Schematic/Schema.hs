@@ -9,6 +9,7 @@ import           Control.Applicative ((<|>))
 import           Control.Monad
 import           Data.Aeson as J
 import           Data.Aeson.Types as J
+import           Data.Coerce
 import           Data.HashMap.Strict as H
 import           Data.Kind
 import           Data.Maybe
@@ -324,79 +325,122 @@ type family USubsets (u :: [k]) :: Constraint where
   USubsets '[] = ()
   USubsets (h ': tl) = (USubset tl (h ': tl) (V.RImage tl (h ': tl)), USubsets tl)
 
-data JsonRepr :: Schema -> Type where
-  ReprText :: Text -> JsonRepr ('SchemaText cs)
-  ReprNumber :: Scientific -> JsonRepr ('SchemaNumber cs)
-  ReprBoolean :: Bool -> JsonRepr 'SchemaBoolean
-  ReprNull :: JsonRepr 'SchemaNull
-  ReprArray :: V.Vector (JsonRepr s) -> JsonRepr ('SchemaArray cs s)
-  ReprObject :: Rec FieldRepr fs -> JsonRepr ('SchemaObject fs)
-  ReprOptional :: Maybe (JsonRepr s) -> JsonRepr ('SchemaOptional s)
-  ReprUnion :: Union JsonRepr (h ': tl) -> JsonRepr ('SchemaUnion (h ': tl))
+class JsonRepresentable (schema :: Schema) where
+  type ReprType schema :: *
+  data JsonRepr schema :: *
+  wrap :: ReprType schema -> JsonRepr schema
+
+instance JsonRepresentable ('SchemaText cs) where
+  type ReprType ('SchemaText cs) = Text
+  newtype JsonRepr ('SchemaText cs) = ReprText (ReprType ('SchemaText cs))
+  wrap = ReprText
+
+instance JsonRepresentable ('SchemaNumber cs) where
+  type ReprType ('SchemaNumber cs) = Scientific
+  newtype JsonRepr ('SchemaNumber cs) = ReprNumber (ReprType ('SchemaNumber cs))
+  wrap = ReprNumber
+
+instance JsonRepresentable 'SchemaBoolean where
+  type ReprType 'SchemaBoolean = Bool
+  newtype JsonRepr 'SchemaBoolean = ReprBoolean (ReprType 'SchemaBoolean)
+  wrap = ReprBoolean
+
+instance JsonRepresentable 'SchemaNull where
+  type ReprType 'SchemaNull = ()
+  newtype JsonRepr 'SchemaNull = ReprNull (ReprType 'SchemaNull)
+  wrap = ReprNull
+
+instance JsonRepresentable s => JsonRepresentable ('SchemaArray cs s) where
+  type ReprType ('SchemaArray cs s) = V.Vector (JsonRepr s)
+  newtype JsonRepr ('SchemaArray cs s) = ReprArray (ReprType ('SchemaArray cs s))
+  wrap = ReprArray
+
+instance JsonRepresentable ('SchemaObject fs) where
+  type ReprType ('SchemaObject fs) = Rec FieldRepr fs
+  newtype JsonRepr ('SchemaObject fs) = ReprObject (ReprType ('SchemaObject fs))
+  wrap = ReprObject
+
+instance JsonRepresentable s => JsonRepresentable ('SchemaOptional s) where
+  type ReprType ('SchemaOptional s) = Maybe (JsonRepr s)
+  newtype JsonRepr ('SchemaOptional s) = ReprOptional (ReprType ('SchemaOptional s))
+  wrap = ReprOptional
+
+instance JsonRepresentable ('SchemaUnion (h ': tl)) where
+  type ReprType ('SchemaUnion (h ': tl)) = Union JsonRepr (h ': tl)
+  newtype JsonRepr ('SchemaUnion (h ': tl)) = ReprUnion (ReprType ('SchemaUnion (h ': tl)))
+  wrap = ReprUnion
+
+-- data JsonRepr :: Schema -> Type where
+--   ReprText :: Text -> JsonRepr ('SchemaText cs)
+--   ReprNumber :: Scientific -> JsonRepr ('SchemaNumber cs)
+--   ReprBoolean :: Bool -> JsonRepr 'SchemaBoolean
+--   ReprNull :: JsonRepr 'SchemaNull
+--   ReprArray :: V.Vector (JsonRepr s) -> JsonRepr ('SchemaArray cs s)
+--   ReprObject :: Rec FieldRepr fs -> JsonRepr ('SchemaObject fs)
+--   ReprOptional :: Maybe (JsonRepr s) -> JsonRepr ('SchemaOptional s)
+--   ReprUnion :: Union JsonRepr (h ': tl) -> JsonRepr ('SchemaUnion (h ': tl))
 
 -- | Move to the union package
-instance Show (JsonRepr ('SchemaText cs)) where
-  show (ReprText t) = "ReprText " P.++ show t
+-- instance Show (JsonRepr ('SchemaText cs)) where
+--   show (ReprText t) = "ReprText " P.++ show t
 
-instance Show (JsonRepr ('SchemaNumber cs)) where
-  show (ReprNumber n) = "ReprNumber " P.++ show n
+-- instance Show (JsonRepr ('SchemaNumber cs)) where
+--   show (ReprNumber n) = "ReprNumber " P.++ show n
 
-instance Show (JsonRepr 'SchemaNull) where show _ = "ReprNull"
+-- instance Show (JsonRepr 'SchemaNull) where show _ = "ReprNull"
 
-instance Show (JsonRepr s) => Show (JsonRepr ('SchemaArray acs s)) where
-  show (ReprArray v) = "ReprArray " P.++ show v
+-- instance Show (JsonRepr s) => Show (JsonRepr ('SchemaArray acs s)) where
+--   show (ReprArray v) = "ReprArray " P.++ show v
 
-instance V.RecAll FieldRepr fs Show => Show (JsonRepr ('SchemaObject fs)) where
-  show (ReprObject fs) = "ReprObject " P.++ show fs
+-- instance V.RecAll FieldRepr fs Show => Show (JsonRepr ('SchemaObject fs)) where
+--   show (ReprObject fs) = "ReprObject " P.++ show fs
 
-instance Show (JsonRepr s) => Show (JsonRepr ('SchemaOptional s)) where
-  show (ReprOptional s) = "ReprOptional " P.++ show s
+-- instance Show (JsonRepr s) => Show (JsonRepr ('SchemaOptional s)) where
+--   show (ReprOptional s) = "ReprOptional " P.++ show s
 
-instance (Monad m, Serial m Text)
-  => Serial m (JsonRepr ('SchemaText cs)) where
-  series = cons1 ReprText
+-- instance (Monad m, Serial m Text)
+--   => Serial m (JsonRepr ('SchemaText cs)) where
+--   series = cons1 ReprText
 
-instance (Monad m, Serial m Scientific)
-  => Serial m (JsonRepr ('SchemaNumber cs)) where
-  series = cons1 ReprNumber
+-- instance (Monad m, Serial m Scientific)
+--   => Serial m (JsonRepr ('SchemaNumber cs)) where
+--   series = cons1 ReprNumber
 
-instance Monad m => Serial m (JsonRepr 'SchemaNull) where
-  series = cons0 ReprNull
+-- instance Monad m => Serial m (JsonRepr 'SchemaNull) where
+--   series = cons0 ReprNull
 
-instance (Serial m (V.Vector (JsonRepr s)))
-  => Serial m (JsonRepr ('SchemaArray cs s)) where
-  series = cons1 ReprArray
+-- instance (Serial m (V.Vector (JsonRepr s)))
+--   => Serial m (JsonRepr ('SchemaArray cs s)) where
+--   series = cons1 ReprArray
 
-instance (Serial m (JsonRepr s))
-  => Serial m (JsonRepr ('SchemaOptional s)) where
-  series = cons1 ReprOptional
+-- instance (Serial m (JsonRepr s))
+--   => Serial m (JsonRepr ('SchemaOptional s)) where
+--   series = cons1 ReprOptional
 
-instance (Monad m, Serial m (Rec FieldRepr fs))
-  => Serial m (JsonRepr ('SchemaObject fs)) where
-  series = cons1 ReprObject
+-- instance (Monad m, Serial m (Rec FieldRepr fs))
+--   => Serial m (JsonRepr ('SchemaObject fs)) where
+--   series = cons1 ReprObject
 
-instance Eq (Rec FieldRepr fs) => Eq (JsonRepr ('SchemaObject fs)) where
-  ReprObject a == ReprObject b = a == b
+-- instance Eq (Rec FieldRepr fs) => Eq (JsonRepr ('SchemaObject fs)) where
+--   ReprObject a == ReprObject b = a == b
 
-instance Eq (JsonRepr ('SchemaText cs)) where
-  ReprText a == ReprText b = a == b
+-- instance Eq (JsonRepr ('SchemaText cs))
 
-instance Eq (JsonRepr ('SchemaNumber cs)) where
-  ReprNumber a == ReprNumber b = a == b
+-- instance Eq (JsonRepr ('SchemaNumber cs))
 
-instance Eq (JsonRepr 'SchemaNull) where
-  ReprNull == ReprNull = True
+-- instance Eq (JsonRepr 'SchemaNull) where
+--   ReprNull == ReprNull = True
 
-instance Eq (JsonRepr s) => Eq (JsonRepr ('SchemaArray as s)) where
-  ReprArray a == ReprArray b = a == b
+-- instance Eq (JsonRepr s) => Eq (JsonRepr ('SchemaArray as s)) where
+--   ReprArray a == ReprArray b = a == b
 
-instance Eq (JsonRepr s) => Eq (JsonRepr ('SchemaOptional s)) where
-  ReprOptional a == ReprOptional b = a == b
+-- instance Eq (JsonRepr s) => Eq (JsonRepr ('SchemaOptional s)) where
+--   ReprOptional a == ReprOptional b = a == b
 
 instance IsList (JsonRepr ('SchemaArray cs s)) where
   type Item (JsonRepr ('SchemaArray cs s)) = JsonRepr s
-  fromList = ReprArray . GHC.Exts.fromList
-  toList (ReprArray v) = GHC.Exts.toList v
+  fromList = GHC.Exts.fromList
+  toList v = GHC.Exts.toList v
 
 instance Num (JsonRepr ('SchemaNumber cs)) where
   ReprNumber a + ReprNumber b = ReprNumber $ a + b
@@ -407,7 +451,7 @@ instance Num (JsonRepr ('SchemaNumber cs)) where
   fromInteger = ReprNumber . fromIntegral
 
 instance IsString (JsonRepr ('SchemaText cs)) where
-  fromString = ReprText . fromString
+  fromString = fromString
 
 fromOptional
   :: SingI s
@@ -440,7 +484,7 @@ instance SingI schema => J.FromJSON (JsonRepr schema) where
     SSchemaNumber _        -> withScientific "Number" (pure . ReprNumber) value
     SSchemaBoolean         -> ReprBoolean <$> parseJSON value
     SSchemaNull            -> case value of
-      J.Null -> pure ReprNull
+      J.Null -> pure (wrap ())
       _      -> typeMismatch "Null" value
     so@(SSchemaOptional s) -> withSingI s $ ReprOptional <$> fromOptional so value
     SSchemaArray sa sb     -> withSingI sa $ withSingI sb
@@ -478,8 +522,8 @@ instance SingI schema => J.FromJSON (JsonRepr schema) where
       ReprObject <$> withObject "Object" (demoteFields fs) value
     SSchemaUnion ss -> parseUnion ss value
 
-instance J.ToJSON (JsonRepr a) where
-  toJSON ReprNull         = J.Null
+instance J.ToJSON (JsonRepr schema) where
+  toJSON (ReprNull _)     = J.Null
   toJSON (ReprBoolean b)  = J.Bool b
   toJSON (ReprText t)     = J.String t
   toJSON (ReprNumber n)   = J.Number n
