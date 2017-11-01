@@ -1,5 +1,9 @@
 # Revision history for schematic
 
+## 0.4.1.0 -- 2017-11-01
+
+flens and fget now use type application syntax
+
 ## 0.4.0.0 -- 2017-10-17
 
 Object building DSL, more convenience helpers, MCons simplified with Tagged
