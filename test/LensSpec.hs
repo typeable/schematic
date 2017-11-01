@@ -303,15 +303,15 @@ spec = do
     newFooVal = FieldRepr $ ReprArray [ReprNumber 15]
     fooProxy  = Proxy @"foo"
   it "gets the field from an object" $ do
-    fget fooProxy objectData `shouldBe` arrayField
+    fget @"foo" objectData `shouldBe` arrayField
   it "sets the object field" $ do
-    fget fooProxy (fput newFooVal objectData) `shouldBe` newFooVal
+    fget @"foo" (fput newFooVal objectData) `shouldBe` newFooVal
 
   describe "(using lens library) " $ do
     it "get the field from an object" $ do
-      objectData ^. flens (Proxy @"foo") `shouldBe` arrayField
+      objectData ^. flens @"foo" `shouldBe` arrayField
     it "sets the object field" $ do
-      set (flens (Proxy @"foo")) newFooVal objectData ^. flens (Proxy @"foo")
+      set (flens @"foo") newFooVal objectData ^. flens @"foo"
         `shouldBe` newFooVal
 
 main :: IO ()

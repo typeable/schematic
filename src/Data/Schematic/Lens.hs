@@ -19,7 +19,6 @@ module Data.Schematic.Lens
   ) where
 
 import Data.Profunctor
-import Data.Proxy
 import Data.Schematic.Schema
 import Data.Scientific
 import Data.Singletons
@@ -36,20 +35,20 @@ type family FIndex (r :: Symbol) (rs :: [(Symbol, Schema)]) :: Nat where
   FIndex r ( '(r, s) ': rs) = 'Z
   FIndex r (  s      ': rs) = 'S (FIndex r rs)
 
+type Flens fn f g rs i
+  =  Functor g
+  => (f '(fn, (ByField fn rs i)) -> g (f '(fn, (ByField fn rs i))))
+  -> Rec f rs
+  -> g (Rec f rs)
+
+type FGetter fn f rs i = Rec f rs -> f '(fn, (ByField fn rs i))
+
 class i ~ FIndex fn rs => FElem (fn :: Symbol) (rs :: [(Symbol, Schema)]) (i :: Nat) where
   type ByField fn rs i :: Schema
-  flens
-    :: Functor g
-    => proxy fn
-    -> (f '(fn, (ByField fn rs i)) -> g (f '(fn, (ByField fn rs i))))
-    -> Rec f rs
-    -> g (Rec f rs)
+  flens :: Flens fn f g rs i
 
   -- | For Vinyl users who are not using the @lens@ package, we provide a getter.
-  fget
-    :: proxy fn
-    -> Rec f rs
-    -> f '(fn, (ByField fn rs i))
+  fget :: FGetter fn f rs i
 
   -- | For Vinyl users who are not using the @lens@ package, we also provide a
   -- setter. In general, it will be unambiguous what field is being written to,
@@ -62,25 +61,25 @@ class i ~ FIndex fn rs => FElem (fn :: Symbol) (rs :: [(Symbol, Schema)]) (i :: 
 instance FElem fn ('(fn, r) ': rs) 'Z where
   type ByField fn ('(fn, r) ': rs) 'Z = r
 
-  flens _ f (x :& xs) = fmap (:& xs) (f x)
+  flens f (x :& xs) = fmap (:& xs) (f x)
   {-# INLINE flens #-}
 
-  fget k = getConst . flens k Const
+  fget = getConst . flens Const
   {-# INLINE fget #-}
 
-  fput y = getIdentity . flens Proxy (\_ -> Identity y)
+  fput y = getIdentity . flens (\_ -> Identity y)
   {-# INLINE fput #-}
 
 instance (FIndex r (s ': rs) ~ 'S i, FElem r rs i) => FElem r (s ': rs) ('S i) where
   type ByField r (s ': rs) ('S i) = ByField r rs i
 
-  flens p f (x :& xs) = fmap (x :&) (flens p f xs)
+  flens f (x :& xs) = fmap (x :&) (flens f xs)
   {-# INLINE flens #-}
 
-  fget k = getConst . flens k Const
+  fget = getConst . flens Const
   {-# INLINE fget #-}
 
-  fput y = getIdentity . flens Proxy (\_ -> Identity y)
+  fput y = getIdentity . flens (\_ -> Identity y)
   {-# INLINE fput #-}
 
 -- This is an internal convenience helpers stolen from the @lens@ library.
@@ -144,7 +143,7 @@ instance
   ( ByField fn ss i ~ s
   , FElem fn ss i
   , FSubset rs ss is) => FSubset ( '(fn,s) ': rs) ss (i ': is) where
-  fsubset = lens (\ss -> fget Proxy ss :& fcast ss) set
+  fsubset = lens (\ss -> fget @fn ss :& fcast ss) set
     where
       set :: Rec f ss -> Rec f ( '(fn,s) ': rs) -> Rec f ss
       set ss (r :& rs) = fput r $ freplace rs ss
