@@ -10,6 +10,11 @@ module Data.Schematic.Lens
   , FSubset(..)
   , obj
   , arr
+  , uni
+  , txt
+  , num
+  , opt
+  , bln
   , textRepr
   , numberRepr
   , boolRepr
@@ -23,6 +28,7 @@ import Data.Schematic.Schema
 import Data.Scientific
 import Data.Singletons
 import Data.Text
+import Data.Union
 import Data.Vector as V
 import Data.Vinyl
 import Data.Vinyl.Functor
@@ -179,10 +185,35 @@ optionalRepr
   => Iso' (FieldRepr '(fn, ('SchemaOptional schema))) (Maybe (JsonRepr schema))
 optionalRepr = iso (\(FieldRepr (ReprOptional r)) -> r) (FieldRepr . ReprOptional)
 
-obj :: (SingI fields) => Iso' (JsonRepr ('SchemaObject fields)) (Rec FieldRepr fields)
+obj
+  :: SingI fields
+  => Iso' (JsonRepr ('SchemaObject fields)) (Rec FieldRepr fields)
 obj = iso (\(ReprObject r) -> r) ReprObject
 
 arr
   :: (SingI schema)
   => Iso' (JsonRepr ('SchemaArray cs schema)) (V.Vector (JsonRepr schema))
 arr = iso (\(ReprArray r) -> r) ReprArray
+
+uni
+  :: SingI (h ': tl)
+  => Iso' (JsonRepr ('SchemaUnion (h ': tl))) (Union JsonRepr (h ': tl))
+uni = iso (\(ReprUnion u) -> u) ReprUnion
+
+txt
+  :: SingI cs
+  => Iso' (JsonRepr ('SchemaText cs)) Text
+txt = iso (\(ReprText t) -> t) ReprText
+
+num
+  :: SingI cs
+  => Iso' (JsonRepr ('SchemaNumber cs)) Scientific
+num = iso (\(ReprNumber t) -> t) ReprNumber
+
+bln :: Iso' (JsonRepr 'SchemaBoolean) Bool
+bln = iso (\(ReprBoolean b) -> b) ReprBoolean
+
+opt
+  :: SingI schema
+  => Iso' (JsonRepr ('SchemaOptional schema)) (Maybe (JsonRepr schema))
+opt = iso (\(ReprOptional o) -> o) ReprOptional
