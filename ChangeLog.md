@@ -1,5 +1,9 @@
 # Revision history for schematic
 
+## 0.4.1.0 -- 2017-11-05
+
+Convenience isomorphisms: txt, num, opt, bln etc
+
 ## 0.4.1.0 -- 2017-11-01
 
 flens and fget now use type application syntax
