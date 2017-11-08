@@ -150,39 +150,37 @@ instance
 
 -- A bunch of @Iso@morphisms
 textRepr
-  :: (KnownSymbol fn, SingI fn, SingI cs)
+  :: (KnownSymbol fn, SingI cs)
   => Iso' (FieldRepr '(fn, ('SchemaText cs))) Text
 textRepr = iso (\(FieldRepr (ReprText t)) -> t) (FieldRepr . ReprText)
 
 numberRepr
-  :: (KnownSymbol fn, SingI fn, SingI cs)
+  :: (KnownSymbol fn, SingI cs)
   => Iso' (FieldRepr '(fn, ('SchemaNumber cs))) Scientific
 numberRepr = iso (\(FieldRepr (ReprNumber n)) -> n) (FieldRepr . ReprNumber)
 
 boolRepr
-  :: (KnownSymbol fn, SingI fn, SingI cs)
+  :: (KnownSymbol fn)
   => Iso' (FieldRepr '(fn, 'SchemaBoolean)) Bool
 boolRepr = iso (\(FieldRepr (ReprBoolean b)) -> b) (FieldRepr . ReprBoolean)
 
 arrayRepr
-  :: (KnownSymbol fn, SingI fn, SingI cs, SingI schema)
+  :: (KnownSymbol fn, SingI cs, SingI schema)
   => Iso' (FieldRepr '(fn, ('SchemaArray cs schema))) (V.Vector (JsonRepr schema))
 arrayRepr = iso (\(FieldRepr (ReprArray a)) -> a) (FieldRepr . ReprArray)
 
 objectRepr
-  :: (KnownSymbol fn, SingI fn, SingI fields)
+  :: (KnownSymbol fn, SingI fields)
   => Iso' (FieldRepr '(fn, ('SchemaObject fields))) (Rec FieldRepr fields)
 objectRepr = iso (\(FieldRepr (ReprObject o)) -> o) (FieldRepr . ReprObject)
 
 optionalRepr
-  :: (KnownSymbol fn, SingI fn, SingI schema)
+  :: (KnownSymbol fn, SingI schema)
   => Iso' (FieldRepr '(fn, ('SchemaOptional schema))) (Maybe (JsonRepr schema))
 optionalRepr = iso (\(FieldRepr (ReprOptional r)) -> r) (FieldRepr . ReprOptional)
 
-obj :: (SingI fields) => Iso' (JsonRepr ('SchemaObject fields)) (Rec FieldRepr fields)
+obj :: Iso' (JsonRepr ('SchemaObject fields)) (Rec FieldRepr fields)
 obj = iso (\(ReprObject r) -> r) ReprObject
 
-arr
-  :: (SingI schema)
-  => Iso' (JsonRepr ('SchemaArray cs schema)) (V.Vector (JsonRepr schema))
+arr :: Iso' (JsonRepr ('SchemaArray cs schema)) (V.Vector (JsonRepr schema))
 arr = iso (\(ReprArray r) -> r) ReprArray
