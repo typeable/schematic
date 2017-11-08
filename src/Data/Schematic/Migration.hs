@@ -10,24 +10,9 @@ import Data.Schematic.Path
 import Data.Tagged
 import Data.Schematic.Schema
 import Data.Singletons.Prelude hiding (All, (:.))
-import Data.Singletons.TypeLits
 import Data.Vinyl
 import Data.Vinyl.Functor
 
-
-data Path
-  = PKey Symbol -- traverse into the object by key
-  | PTraverse   -- traverse into the array
-
-data instance Sing (p :: Path) where
-  SPKey :: Sing s -> Sing ('PKey s)
-  SPTraverse :: Sing 'PTraverse
-
-instance KnownSymbol s => SingI ('PKey s) where
-  sing = SPKey sing
-
-instance SingI 'PTraverse where
-  sing = SPTraverse
 
 -- Result type blueprint
 data Builder

@@ -1,4 +1,15 @@
-module Data.Schematic.Validation where
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
+module Data.Schematic.Validation
+  ( Validation
+  , ErrorMap
+  , ParseResult(..)
+  , isValid
+  , isDecodingError
+  , isValidationError
+  , zoomTo
+  , validateJsonRepr
+  ) where
 
 import Control.Monad
 import Control.Monad.Validation
@@ -41,6 +52,20 @@ isDecodingError _                 = False
 isValidationError :: ParseResult a -> Bool
 isValidationError (ValidationError _) = True
 isValidationError _                   = False
+
+-- zoomTo
+--   :: ASetter' (JsonRepr s) (JsonRepr a)
+--   -> Validation a
+--   -> Validation s
+-- zoomTo l =
+
+type ZoomTo path s
+  =  Demote [Path]
+  -> Validation (ParseResult (JsonRepr s))
+  -> Validation (ParseResult (JsonRepr (TraversePath path s)))
+
+zoomTo :: ZoomTo path s
+zoomTo l = undefined
 
 validateTextConstraint
   :: JSONPath
@@ -206,7 +231,7 @@ validateJsonRepr sschema dpath jr = case jr of
           let newPath = dpath <> [DKey (knownFieldName f)]
           validateJsonRepr (knownFieldSchema f) newPath d
           go ftl
-  ReprUnion _ -> pure () -- FIXME
+  ReprUnion _ -> pure ()
     -- case sschema of
     --   SSchemaUnion ss -> case ss of
     --     SCons s stl -> case umatch' s u of

@@ -2,11 +2,40 @@ module Data.Schematic.Path where
 
 import Data.Foldable as F
 import Data.Monoid
+import Data.Schematic.Schema
 import Data.Singletons
 import Data.Singletons.Prelude
 import Data.Singletons.TypeLits
 import Data.Text as T
 
+
+-- Schema level path
+
+data Path
+  = PKey Symbol -- traverse into the object by key
+  | PTraverse   -- traverse into the array
+
+data instance Sing (p :: Path) where
+  SPKey :: Sing s -> Sing ('PKey s)
+  SPTraverse :: Sing 'PTraverse
+
+instance KnownSymbol s => SingI ('PKey s) where
+  sing = SPKey sing
+
+instance SingI 'PTraverse where
+  sing = SPTraverse
+
+type family TraverseStep (p :: Path) (s :: Schema) :: Schema where
+  TraverseStep ('PKey fn) ('SchemaObject ( '(fn, s) ': tl )) = s
+  TraverseStep ('PKey fn) ('SchemaObject ( '(x, s) ': tl )) =
+    TraverseStep ('PKey fn) ('SchemaObject tl)
+  TraverseStep 'PTraverse ('SchemaArray cs s) = s
+
+type family TraversePath (ps :: [Path]) (s :: Schema) :: Schema where
+  TraversePath '[] s = s
+  TraversePath (p ': ps) s = TraversePath ps (TraverseStep p s)
+
+-- Data level path
 
 data PathSegment = Key Symbol | Ix Nat
 
