@@ -191,25 +191,17 @@ obj = iso (\(ReprObject r) -> r) ReprObject
 arr :: Iso' (JsonRepr ('SchemaArray cs schema)) (V.Vector (JsonRepr schema))
 arr = iso (\(ReprArray r) -> r) ReprArray
 
-uni
-  :: SingI (h ': tl)
-  => Iso' (JsonRepr ('SchemaUnion (h ': tl))) (Union JsonRepr (h ': tl))
+uni :: Iso' (JsonRepr ('SchemaUnion (h ': tl))) (Union JsonRepr (h ': tl))
 uni = iso (\(ReprUnion u) -> u) ReprUnion
 
-txt
-  :: SingI cs
-  => Iso' (JsonRepr ('SchemaText cs)) Text
+txt :: Iso' (JsonRepr ('SchemaText cs)) Text
 txt = iso (\(ReprText t) -> t) ReprText
 
-num
-  :: SingI cs
-  => Iso' (JsonRepr ('SchemaNumber cs)) Scientific
+num :: Iso' (JsonRepr ('SchemaNumber cs)) Scientific
 num = iso (\(ReprNumber t) -> t) ReprNumber
 
 bln :: Iso' (JsonRepr 'SchemaBoolean) Bool
 bln = iso (\(ReprBoolean b) -> b) ReprBoolean
 
-opt
-  :: SingI schema
-  => Iso' (JsonRepr ('SchemaOptional schema)) (Maybe (JsonRepr schema))
+opt :: Iso' (JsonRepr ('SchemaOptional schema)) (Maybe (JsonRepr schema))
 opt = iso (\(ReprOptional o) -> o) ReprOptional
