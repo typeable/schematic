@@ -18,9 +18,9 @@ import           Data.Vinyl.Functor
 
 
 type Constructor a
-  = forall b. FSubset (FieldsOf a) b (FImage (FieldsOf a) b)
-  => Rec (Tagged (FieldsOf a) :. FieldRepr) b
-  -> JsonRepr ('SchemaObject (FieldsOf a))
+  = forall fields b. (fields ~ FieldsOf a, FSubset fields b (FImage fields b))
+  => Rec (Tagged fields :. FieldRepr) b
+  -> JsonRepr ('SchemaObject fields)
 
 withRepr :: Constructor a
 withRepr = ReprObject . rmap (unTagged . getCompose) . fcast
@@ -66,9 +66,9 @@ type family FieldsOf (s :: Schema) :: [(Symbol, Schema)] where
   FieldsOf ('SchemaObject fs) = fs
 
 type FieldConstructor fn =
-  forall fs. (Representable (ByField fn fs (FIndex fn fs)))
-  => Repr (ByField fn fs (FIndex fn fs))
-  -> (Tagged fs :. FieldRepr) '(fn, (ByField fn fs (FIndex fn fs)))
+  forall byField fs. (byField ~ ByField fn fs (FIndex fn fs), Representable byField)
+  => Repr byField
+  -> (Tagged fs :. FieldRepr) '(fn, byField)
 
 field :: forall fn. KnownSymbol fn => FieldConstructor fn
 field = Compose . Tagged . constructField (sing :: Sing fn) Proxy
