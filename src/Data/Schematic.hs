@@ -37,6 +37,7 @@ import Data.Schematic.Validation
 import Data.Singletons.Prelude hiding ((:.))
 import Data.Tagged
 import Data.Text as T
+import Data.Vinyl
 
 
 parseAndValidateJson
@@ -124,3 +125,74 @@ decodeAndValidateVersionedWithPureMList
   -> ParseResult (JsonRepr (Head (MapSnd (AllVersions versioned))))
 decodeAndValidateVersionedWithPureMList a b c =
   runIdentity $ decodeAndValidateVersionedWithMList a b c
+
+type SText = SchemaText '[]
+-- type SText = SchemaText '[TRegex "[0-9]+\\.[0-9]{2}"]
+-- type SEnum = SchemaText '[TEnum '["one", "two", "three"]]
+
+type BigSchema = SchemaObject
+  '[ '("1", SText)
+   , '("2", SText)
+   , '("3", SText)
+   , '("4", SText)
+   , '("5", SText)
+   , '("6", SText)
+   , '("7", SText)
+   , '("8", SText)
+   , '("9", SText)
+   , '("10", SText)
+   , '("11", SText)
+   , '("12", SText)
+   , '("13", SText)
+   , '("14", SText)
+   , '("15", SText)
+   , '("16", SText)
+   , '("17", SText)
+   , '("18", SText)
+   , '("19", SText)
+   , '("20", SText)
+   , '("21", SText)
+   , '("22", SText)
+   , '("23", SText)
+   , '("24", SText)
+   , '("25", SText)
+   , '("26", SText)
+   , '("27", SText)
+   , '("28", SText)
+   , '("29", SText)
+   , '("30", SText)
+   ]
+
+bigSchema :: JsonRepr BigSchema
+bigSchema = withRepr @BigSchema
+  $  field @"1" ""
+  :& field @"2" ""
+  :& field @"3" ""
+  :& field @"4" ""
+  :& field @"5" ""
+  :& field @"6" ""
+  :& field @"7" ""
+  :& field @"8" ""
+  :& field @"9" ""
+  :& field @"10" ""
+  :& field @"11" ""
+  :& field @"12" ""
+  :& field @"13" ""
+  :& field @"14" ""
+  :& field @"15" ""
+  :& field @"16" ""
+  :& field @"17" ""
+  :& field @"18" ""
+  :& field @"19" ""
+  :& field @"20" ""
+  :& field @"21" ""
+  :& field @"22" ""
+  :& field @"23" ""
+  :& field @"24" ""
+  :& field @"25" ""
+  :& field @"26" ""
+  :& field @"27" ""
+  :& field @"28" ""
+  :& field @"29" ""
+  :& field @"30" ""
+  :& RNil
