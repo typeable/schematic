@@ -20,6 +20,7 @@ module Data.Schematic
   , ParseResult(..)
   , withRepr
   , field
+  , bigSchema
   ) where
 
 import Control.Monad.Validation
