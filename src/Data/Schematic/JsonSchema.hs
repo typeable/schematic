@@ -91,7 +91,7 @@ toJsonSchema' = \case
     res <- toJsonSchema' sch
     pure $ execState (traverse_ arrayConstraint acs) $ emptySchema
       { _schemaType  = pure $ TypeValidatorString D4.SchemaArray
-      , _schemaItems = pure $ ItemsArray [res] }
+      , _schemaItems = pure $ ItemsObject res }
   DSchemaNull -> pure $ emptySchema
     { _schemaType = pure $ TypeValidatorString D4.SchemaNull }
   DSchemaOptional sch -> do
