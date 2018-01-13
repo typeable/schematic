@@ -24,5 +24,5 @@ let
 
 in
   lib.genAttrs supportedSystems (system: {
-    schematic = mkSchematic system;
+    schematic = pkgs.haskell.lib.triggerRebuild (mkSchematic system) 0;
   })
