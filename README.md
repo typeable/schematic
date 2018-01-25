@@ -24,7 +24,7 @@ $ stack install schematic
 
 ## GHC Extensions
 
-To use this library without any hassle, you should add a few GHC extension
+To use this library without any hassle you should add a few GHC extension
 either to a module or a cabal file:
 
 ```
@@ -35,7 +35,7 @@ TypeApplications
 ```
 
 `Overloaded`-extensions are being used only by `field` combinator,
-so it you don't use it - feel free to disable it.
+so if you don't use it - feel free to disable it.
 
 ## GHC Options
 
