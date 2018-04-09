@@ -29,7 +29,7 @@ demotePath = go []
     go acc (SCons p ps) = go (acc ++ [demote p]) ps
     demote :: Sing (ps :: PathSegment) -> DemotedPathSegment
     demote (SKey s) = DKey $ T.pack $ withKnownSymbol s $ symbolVal s
-    demote (SIx n) = DIx $ withKnownNat n $ natVal n
+    demote (SIx n) = DIx $ withKnownNat n $ fromIntegral $ natVal n
 
 demotedPathToText :: [DemotedPathSegment] -> JSONPath
 demotedPathToText = JSONPath . F.foldl' renderPathSegment ""

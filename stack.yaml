@@ -1,1 +1,12 @@
-resolver: lts-10.0
+resolver: nightly-2018-04-05
+extra-deps:
+  - transformers-lift-0.2.0.1
+  - union-0.1.1.2
+  - QuickCheck-2.10.1
+  - http-types-0.9.1
+  - git: https://github.com/4e6/validationt.git
+    commit: b1ec01576114595c109d3e86f4cb2fad3de43b43
+  - git: https://github.com/4e6/hjsonpointer.git
+    commit: 53833ce632b84eb209dea6748ad642502a02249a
+  - git: https://github.com/4e6/hjsonschema.git
+    commit: 370cee6aab20157bee0c00d5f2cb01c6221610f1

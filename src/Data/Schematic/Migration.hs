@@ -42,8 +42,8 @@ type family SchemaByKey (fs :: [(Symbol, Schema)]) (s :: Symbol) :: Schema where
   SchemaByKey ( '(a, s) ': tl) fn = SchemaByKey tl fn
 
 type family DeleteKey (acc :: [(Symbol, Schema)]) (fn :: Symbol) (fs :: [(Symbol, Schema)]) :: [(Symbol, Schema)] where
-  DeleteKey acc fn ('(fn, a) ': tl) = acc :++ tl
-  DeleteKey acc fn (fna ': tl) = acc :++ (fna ': tl)
+  DeleteKey acc fn ('(fn, a) ': tl) = acc ++ tl
+  DeleteKey acc fn (fna ': tl) = acc ++ (fna ': tl)
 
 type family UpdateKey
   (fn :: Symbol)
@@ -146,7 +146,7 @@ data instance Sing (v :: Versioned) where
 
 type DataMigration s m h = Tagged s (JsonRepr h -> m (JsonRepr s))
 
-data MList :: (* -> *) -> [Schema] -> Type where
+data MList :: (Type -> Type) -> [Schema] -> Type where
   MNil :: (Monad m, SingI s, TopLevel s) => MList m '[s]
   (:&&)
     :: (TopLevel s, SingI s)
