@@ -1,5 +1,9 @@
 # Revision history for schematic
 
+## HEAD
+
+Support ghc-8.4 and drop support for older versions
+
 ## 0.4.1.0 -- 2017-11-05
 
 Convenience isomorphisms: txt, num, opt, bln etc
