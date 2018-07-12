@@ -57,7 +57,7 @@ library
                      , TypeOperators
                      , TypeSynonymInstances
                      , UndecidableInstances
-  build-depends:       base >=4.9 && <4.11
+  build-depends:       base >=4.11 && <4.12
                      , bytestring
                      , aeson >= 1
                      , containers
@@ -67,14 +67,14 @@ library
                      , regex-tdfa
                      , regex-tdfa-text
                      , scientific
-                     , singletons >= 2.2
+                     , singletons >= 2.4
                      , smallcheck
                      , tagged
                      , template-haskell
                      , text
                      , union
                      , unordered-containers
-                     , validationt >= 0.1.0.1
+                     , validationt >= 0.2.1.0
                      , vector
                      , vinyl
   hs-source-dirs:      src
@@ -87,7 +87,7 @@ test-suite spec
   default-language:   Haskell2010
   build-depends:       HUnit
                      , aeson >= 1
-                     , base >=4.9 && <4.11
+                     , base >=4.11 && <4.12
                      , bytestring
                      , containers
                      , hjsonschema
@@ -104,7 +104,7 @@ test-suite spec
                      , tagged
                      , text
                      , unordered-containers
-                     , validationt >= 0.1.0.1
+                     , validationt >= 0.2.1.0
                      , vinyl
   other-modules:       SchemaSpec
                      , HelpersSpec

@@ -48,11 +48,11 @@ data TextConstraint
 instance SingKind TextConstraint where
   type Demote TextConstraint = DemotedTextConstraint
   fromSing = \case
-    STEq n -> withKnownNat n (DTEq $ natVal n)
-    STLt n -> withKnownNat n (DTLt $ natVal n)
-    STLe n -> withKnownNat n (DTLe $ natVal n)
-    STGt n -> withKnownNat n (DTGt $ natVal n)
-    STGe n -> withKnownNat n (DTGe $ natVal n)
+    STEq n -> withKnownNat n (DTEq . fromIntegral $ natVal n)
+    STLt n -> withKnownNat n (DTLt . fromIntegral $ natVal n)
+    STLe n -> withKnownNat n (DTLe . fromIntegral $ natVal n)
+    STGt n -> withKnownNat n (DTGt . fromIntegral $ natVal n)
+    STGe n -> withKnownNat n (DTGe . fromIntegral $ natVal n)
     STRegex s -> withKnownSymbol s (DTRegex $ T.pack $ symbolVal s)
     STEnum s -> let
       d :: Sing (s :: [Symbol]) -> [Text]
@@ -153,11 +153,11 @@ instance Eq (Sing ('NGe n)) where _ == _ = True
 instance SingKind NumberConstraint where
   type Demote NumberConstraint = DemotedNumberConstraint
   fromSing = \case
-    SNEq n -> withKnownNat n (DNEq $ natVal n)
-    SNGt n -> withKnownNat n (DNGt $ natVal n)
-    SNGe n -> withKnownNat n (DNGe $ natVal n)
-    SNLt n -> withKnownNat n (DNLt $ natVal n)
-    SNLe n -> withKnownNat n (DNLe $ natVal n)
+    SNEq n -> withKnownNat n (DNEq . fromIntegral $ natVal n)
+    SNGt n -> withKnownNat n (DNGt . fromIntegral $ natVal n)
+    SNGe n -> withKnownNat n (DNGe . fromIntegral $ natVal n)
+    SNLt n -> withKnownNat n (DNLt . fromIntegral $ natVal n)
+    SNLe n -> withKnownNat n (DNLe . fromIntegral $ natVal n)
   toSing = \case
     DNEq n -> case someNatVal n of
       Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNEq (SNat :: Sing n))
@@ -193,7 +193,7 @@ instance Eq (Sing ('AEq n)) where _ == _ = True
 instance SingKind ArrayConstraint where
   type Demote ArrayConstraint = DemotedArrayConstraint
   fromSing = \case
-    SAEq n -> withKnownNat n (DAEq $ natVal n)
+    SAEq n -> withKnownNat n (DAEq . fromIntegral $ natVal n)
   toSing = \case
     DAEq n -> case someNatVal n of
       Just (SomeNat (_ :: Proxy n)) -> SomeSing (SAEq (SNat :: Sing n))

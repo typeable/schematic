@@ -1,1 +1,5 @@
-resolver: lts-10.0
+resolver: lts-12.0
+extra-deps:
+  - hjsonpointer-1.4.0@rev:0
+  - hjsonschema-1.9.0@rev:0
+  - validationt-0.2.1.0
