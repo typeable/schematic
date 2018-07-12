@@ -1,6 +1,10 @@
 # Revision history for schematic
 
-## HEAD
+## 0.4.3.0 -- 2018-07-12
+
+GHC 8.4 support, dropping support for older GHC versions
+
+## 0.4.2.0
 
 Support ghc-8.4 and drop support for older versions
 

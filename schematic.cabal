@@ -1,5 +1,5 @@
 name:                schematic
-version:             0.4.2.0
+version:             0.4.3.0
 synopsis:            JSON-biased spec and validation tool
 license:             BSD3
 license-file:        LICENSE
