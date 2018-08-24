@@ -57,7 +57,7 @@ library
                      , TypeOperators
                      , TypeSynonymInstances
                      , UndecidableInstances
-  build-depends:       base >=4.11 && <4.12
+  build-depends:       base >=4.10 && <4.12
                      , bytestring
                      , aeson >= 1
                      , containers
@@ -67,14 +67,14 @@ library
                      , regex-tdfa
                      , regex-tdfa-text
                      , scientific
-                     , singletons >= 2.4
+                     , singletons >= 2.3
                      , smallcheck
                      , tagged
                      , template-haskell
                      , text
                      , union
                      , unordered-containers
-                     , validationt >= 0.2.1.0
+                     , validationt >= 0.2.0.0
                      , vector
                      , vinyl
   hs-source-dirs:      src
