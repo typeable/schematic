@@ -2,6 +2,8 @@ module Data.Schematic.Validation where
 
 import Control.Monad
 import Control.Monad.Validation
+import Data.Aeson
+import Data.Aeson.Types
 import Data.Foldable
 import Data.Functor.Identity
 import Data.Monoid
@@ -29,6 +31,10 @@ data ParseResult a
   | DecodingError Text       -- static
   | ValidationError ErrorMap -- runtime
   deriving (Show, Eq, Functor, Foldable, Traversable)
+
+instance (TopLevel a, SingI a, FromJSON (JsonRepr a))
+  => FromJSON (ParseResult (JsonRepr a)) where
+    parseJSON = pure . parseAndValidateJson @a
 
 isValid :: ParseResult a -> Bool
 isValid (Valid _) = True
@@ -246,3 +252,26 @@ toUnion _ = ReprUnion . urelax
 
 umatch' :: UElem a as i => Sing a -> Union f as -> Maybe (f a)
 umatch' _ u = umatch u
+
+parseAndValidateJson
+  :: forall schema
+  .  (FromJSON (JsonRepr schema), TopLevel schema, SingI schema)
+  => Value
+  -> ParseResult (JsonRepr schema)
+parseAndValidateJson v =
+  case parseEither parseJSON v of
+    Left s         -> DecodingError $ T.pack s
+    Right jsonRepr ->
+      let
+        validate = validateJsonRepr (sing :: Sing schema) [] jsonRepr
+        res      = runIdentity . runValidationTEither $ validate
+      in case res of
+        Left em  -> ValidationError em
+        Right () -> Valid jsonRepr
+
+parseAndValidateJsonBy
+  :: (FromJSON (JsonRepr schema), TopLevel schema, SingI schema)
+  => proxy schema
+  -> Value
+  -> ParseResult (JsonRepr schema)
+parseAndValidateJsonBy _ = parseAndValidateJson
