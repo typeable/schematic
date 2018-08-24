@@ -4,13 +4,14 @@
 module Data.Schematic.Migration where
 
 import Data.Kind
+import Data.List
 import Data.Schematic.DSL
 import Data.Schematic.Lens
 import Data.Schematic.Path
-import Data.Tagged
 import Data.Schematic.Schema
 import Data.Singletons.Prelude hiding (All, (:.))
 import Data.Singletons.TypeLits
+import Data.Tagged
 import Data.Vinyl
 import Data.Vinyl.Functor
 
