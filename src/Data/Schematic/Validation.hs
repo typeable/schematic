@@ -135,14 +135,14 @@ validateNumberConstraint (JSONPath path) num = \case
   SNLt n -> do
     let
       nlen      = withKnownNat n $ natVal n
-      predicate = fromIntegral nlen < num
+      predicate = num < fromIntegral nlen
       errMsg    = path <> " should be < " <> T.pack (show nlen)
       warn      = vWarning $ mmSingleton path (pure errMsg)
     unless predicate warn
   SNLe n -> do
     let
       nlen      = withKnownNat n $ natVal n
-      predicate = fromIntegral nlen <= num
+      predicate = num <= fromIntegral nlen
       errMsg    = path <> " should be <= " <> T.pack (show nlen)
       warn      = vWarning $ mmSingleton path (pure errMsg)
     unless predicate warn
