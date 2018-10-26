@@ -472,7 +472,7 @@ instance SingI schema => J.FromJSON (JsonRepr schema) where
               Nothing -> fail "schemaobject"
             SSchemaOptional so -> case H.lookup fieldName h of
               Just v -> withSingI so $ FieldRepr <$> parseJSON v
-              Nothing -> fail "schemaoptional"
+              Nothing -> withSingI so $ pure $ FieldRepr $ ReprOptional Nothing
             SSchemaUnion ss -> withSingI ss $ FieldRepr <$> parseUnion ss value
           (fieldRepr :&) <$> demoteFields tl h
       ReprObject <$> withObject "Object" (demoteFields fs) value
