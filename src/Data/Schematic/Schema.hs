@@ -454,22 +454,22 @@ instance SingI schema => J.FromJSON (JsonRepr schema) where
           fieldRepr <- case s of
             SSchemaText so -> case H.lookup fieldName h of
               Just v  -> withSingI so $ FieldRepr <$> parseJSON v
-              Nothing -> fail "schematext"
+              Nothing -> fail $ "No text field: " P.++ show fieldName
             SSchemaNumber so -> case H.lookup fieldName h of
               Just v  -> withSingI so $ FieldRepr <$> parseJSON v
-              Nothing -> fail "schemanumber"
+              Nothing -> fail $ "No number field: " P.++ show fieldName
             SSchemaBoolean -> case H.lookup fieldName h of
               Just v  -> FieldRepr <$> parseJSON v
-              Nothing -> fail "schemaboolean"
+              Nothing -> fail $ "No boolean field: " P.++ show fieldName
             SSchemaNull -> case H.lookup fieldName h of
               Just v  -> FieldRepr <$> parseJSON v
-              Nothing -> fail "schemanull"
+              Nothing -> fail $ "No null field: " P.++ show fieldName
             SSchemaArray sa sb -> case H.lookup fieldName h of
               Just v  -> withSingI sa $ withSingI sb $ FieldRepr <$> parseJSON v
-              Nothing -> fail "schemaarray"
+              Nothing -> fail $ "No array field: " P.++ show fieldName
             SSchemaObject so -> case H.lookup fieldName h of
               Just v  -> withSingI so $ FieldRepr <$> parseJSON v
-              Nothing -> fail "schemaobject"
+              Nothing -> fail $ "No object field" P.++ show fieldName
             SSchemaOptional so -> case H.lookup fieldName h of
               Just v -> withSingI so $ FieldRepr <$> parseJSON v
               Nothing -> withSingI so $ pure $ FieldRepr $ ReprOptional Nothing
