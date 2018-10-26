@@ -12,8 +12,10 @@ import Control.Monad.State.Strict
 import Data.Aeson as J
 import Data.Foldable as F
 import Data.HashMap.Strict as H
+import Data.List as L
 import Data.List.NonEmpty as NE
 import Data.Schematic.Schema as S
+import Data.Set as Set
 import Data.Singletons
 import Data.Text
 import Data.Traversable
@@ -84,8 +86,13 @@ toJsonSchema' = \case
     res <- for objs $ \(n,s) -> do
       s' <- toJsonSchema' s
       pure (n, s')
+    let
+      nonOpt = \case
+        (_, DSchemaOptional _) -> False
+        _                      -> True
     pure $ emptySchema
       { _schemaType       = pure $ TypeValidatorString D4.SchemaObject
+      , _schemaRequired   = pure $ Set.fromList $ fst <$> L.filter nonOpt objs
       , _schemaProperties = pure $ H.fromList res }
   DSchemaArray acs sch -> do
     res <- toJsonSchema' sch
