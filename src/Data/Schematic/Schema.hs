@@ -393,6 +393,24 @@ instance Eq (JsonRepr s) => Eq (JsonRepr ('SchemaArray as s)) where
 instance Eq (JsonRepr s) => Eq (JsonRepr ('SchemaOptional s)) where
   ReprOptional a == ReprOptional b = a == b
 
+instance Ord (Rec FieldRepr fs) => Ord (JsonRepr ('SchemaObject fs)) where
+  ReprObject a `compare` ReprObject b = a `compare` b
+
+instance Ord (JsonRepr ('SchemaText cs)) where
+  ReprText a `compare` ReprText b = a `compare` b
+
+instance Ord (JsonRepr ('SchemaNumber cs)) where
+  ReprNumber a `compare` ReprNumber b = a `compare` b
+
+instance Ord (JsonRepr 'SchemaNull) where
+  compare _ _ = EQ
+
+instance Ord (JsonRepr s) => Ord (JsonRepr ('SchemaArray as s)) where
+  ReprArray a `compare` ReprArray b = a `compare` b
+
+instance Ord (JsonRepr s) => Ord (JsonRepr ('SchemaOptional s)) where
+  ReprOptional a `compare` ReprOptional b = a `compare` b
+
 instance IsList (JsonRepr ('SchemaArray cs s)) where
   type Item (JsonRepr ('SchemaArray cs s)) = JsonRepr s
   fromList = ReprArray . GHC.Exts.fromList
