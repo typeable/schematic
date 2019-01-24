@@ -4,7 +4,6 @@
 module Data.Schematic.Migration where
 
 import Data.Kind
-import Data.List
 import Data.Schematic.DSL
 import Data.Schematic.Lens
 import Data.Schematic.Path
