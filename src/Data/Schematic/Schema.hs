@@ -88,7 +88,7 @@ data DemotedTextConstraint
   | DTGe Integer
   | DTRegex Text
   | DTEnum [Text]
-  deriving (Generic)
+  deriving (Generic, Eq, Show)
 
 data instance Sing (tc :: TextConstraint) where
   STEq :: Sing n -> Sing ('TEq n)
@@ -129,7 +129,7 @@ data DemotedNumberConstraint
   | DNGt Integer
   | DNGe Integer
   | DNEq Integer
-  deriving (Generic)
+  deriving (Generic, Eq, Show)
 
 data instance Sing (nc :: NumberConstraint) where
   SNEq :: Sing n -> Sing ('NEq n)
@@ -181,7 +181,7 @@ data ArrayConstraint
 
 data DemotedArrayConstraint
   = DAEq Integer
-  deriving (Generic)
+  deriving (Generic, Eq, Show)
 
 data instance Sing (ac :: ArrayConstraint) where
   SAEq :: Sing n -> Sing ('AEq n)
@@ -219,7 +219,7 @@ data DemotedSchema
   | DSchemaNull
   | DSchemaOptional DemotedSchema
   | DSchemaUnion [DemotedSchema]
-  deriving (Generic)
+  deriving (Generic, Eq, Show)
 
 data instance Sing (schema :: Schema) where
   SSchemaText :: Sing tcs -> Sing ('SchemaText tcs)
