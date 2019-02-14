@@ -1,16 +1,7 @@
 module Data.Schematic.Verifier.Number where
 
-import Data.List
-import Data.Maybe
 import Data.Schematic
-import Data.Schematic.Schema
 import Data.Schematic.Verifier.Common
-import Data.Singletons
-import Data.Singletons.Prelude
-import Data.Singletons.TypeLits
-import Data.Text (Text)
-import Data.Text.Array (Array)
-import GHC.Generics
 
 toStrictNumber :: [DemotedNumberConstraint] -> [DemotedNumberConstraint]
 toStrictNumber = map f

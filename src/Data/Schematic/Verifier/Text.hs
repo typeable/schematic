@@ -1,19 +1,10 @@
 module Data.Schematic.Verifier.Text where
 
 import Control.Monad
-import Data.List
 import Data.Maybe
 import Data.Schematic
-import Data.Schematic.Schema
 import Data.Schematic.Verifier.Common
-import Data.Singletons
-import Data.Singletons.Prelude
-import Data.Singletons.TypeLits
-import Data.Text (unpack)
-import Data.Text (Text)
-import Data.Text.Array (Array)
-import GHC.Generics
-import Text.Regex.TDFA
+import Data.Text (Text, unpack)
 import Text.Regex.TDFA.Pattern
 import Text.Regex.TDFA.ReadRegex (parseRegex)
 
@@ -62,12 +53,12 @@ minRegexLength p =
   case p of
     PEmpty -> 0
     PChar {..} -> 1
-    PAny {getPatternSet = PatternSet (Just cset) _ _ _} -> 1
-    PAnyNot {getPatternSet = PatternSet (Just cset) _ _ _} -> 1
-    PQuest p -> 0
-    PPlus p -> minRegexLength $ PBound 1 Nothing p
-    PStar _ p -> minRegexLength $ PBound 0 Nothing p
-    PBound low mhigh p -> low * minRegexLength p
+    PAny {..} -> 1
+    PAnyNot {..} -> 1
+    PQuest _ -> 0
+    PPlus sch -> minRegexLength $ PBound 1 Nothing sch
+    PStar _ sch -> minRegexLength $ PBound 0 Nothing sch
+    PBound low _ sch -> low * minRegexLength sch
     PConcat ps -> sum $ fmap minRegexLength ps
     POr xs -> minimum $ fmap minRegexLength xs
     PDot _ -> 1
@@ -86,7 +77,7 @@ maxRegexLength p =
     PQuest _ -> Just 0
     PPlus _ -> Nothing
     PStar _ _ -> Nothing
-    PBound low mhigh p -> (*) <$> mhigh <*> maxRegexLength p
+    PBound _ mhigh sch -> (*) <$> mhigh <*> maxRegexLength sch
     PConcat ps -> sum <$> mapM maxRegexLength ps
     POr xs -> maximum <$> mapM maxRegexLength xs
     PDot _ -> Just 1

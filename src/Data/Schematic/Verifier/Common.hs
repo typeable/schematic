@@ -18,8 +18,8 @@ verifyDNEq :: [Integer] -> Maybe (Maybe Integer)
 verifyDNEq x =
   case nub x of
     [] -> Just Nothing
-    [x] -> Just $ Just x
-    (x:y:_) -> Nothing
+    [y] -> Just $ Just y
+    (_:_:_) -> Nothing
 
 verify3 :: Maybe Integer -> Maybe Integer -> Maybe Integer -> Maybe ()
 verify3 (Just x) (Just y) (Just z) =

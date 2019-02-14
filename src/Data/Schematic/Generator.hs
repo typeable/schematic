@@ -1,26 +1,14 @@
 module Data.Schematic.Generator where
 
-import Control.Monad
-import Data.Aeson (Object, Value(..))
-import Data.HashMap.Lazy (HashMap)
+import Data.Aeson (Value(..))
 import qualified Data.HashMap.Lazy as H
-import Data.List
 import Data.Maybe
-import Data.Monoid
 import Data.Schematic.Schema
-import qualified Data.Set as S
-import Data.Text (Text, pack, unpack)
-import qualified Data.Text as T (replicate)
-import Data.Text.Lazy (toStrict)
-import Data.Text.Lazy.Builder (Builder, singleton, toLazyText)
+import Data.Text (Text, pack)
 import qualified Data.Vector as V
 import Data.Schematic.Generator.Regex
 import Data.Schematic.Verifier
-import Test.SmallCheck
 import Test.SmallCheck.Series
-import Text.Regex.TDFA
-import Text.Regex.TDFA.Pattern
-import Text.Regex.TDFA.ReadRegex (parseRegex)
 
 maxHigh :: Int
 maxHigh = 30
