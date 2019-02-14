@@ -103,7 +103,7 @@ spec = do
       migrationList
       schemaJson
         `shouldSatisfy` isValid
-  it "validate json series" $ property $
+  it "validates json series" $ property $
     SC.over schemaJsonSeries $ \x ->
       isValid (parseAndValidateJson @SchemaExample x)
 
