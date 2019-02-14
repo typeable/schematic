@@ -15,6 +15,8 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Data.Schematic
                      , Data.Schematic.DSL
+                     , Data.Schematic.Generator
+                     , Data.Schematic.Generator.Regex
                      , Data.Schematic.Instances
                      , Data.Schematic.JsonSchema
                      , Data.Schematic.Helpers
@@ -23,6 +25,11 @@ library
                      , Data.Schematic.Path
                      , Data.Schematic.Schema
                      , Data.Schematic.Validation
+                     , Data.Schematic.Verifier
+                     , Data.Schematic.Verifier.Array
+                     , Data.Schematic.Verifier.Common
+                     , Data.Schematic.Verifier.Number
+                     , Data.Schematic.Verifier.Text
   ghc-options:       -Wall
   default-extensions:  ConstraintKinds
                      , DataKinds

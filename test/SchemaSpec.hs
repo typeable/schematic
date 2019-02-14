@@ -17,10 +17,17 @@ import Data.ByteString.Lazy
 import Data.Functor.Identity
 import Data.Proxy
 import Data.Schematic
+import Data.Schematic.Generator
+import Data.Singletons
 import Data.Tagged
 import Data.Vinyl
 import Test.Hspec
+import Test.Hspec.SmallCheck
+import Test.SmallCheck as SC
+import Test.SmallCheck.Drivers as SC
+import Test.SmallCheck.Series as SC
 
+import Debug.Trace
 
 type SchemaExample = 'SchemaObject
   '[ '("foo", 'SchemaArray '[ 'AEq 1] ('SchemaNumber '[ 'NGt 10]))
@@ -69,6 +76,9 @@ schemaJson = "{\"foo\": [13], \"bar\": null}"
 schemaJson2 :: ByteString
 schemaJson2 = "{\"foo\": [3], \"bar\": null}"
 
+schemaJsonSeries :: Monad m => SC.Series m Value
+schemaJsonSeries = valueSeries $ fromSing (sing :: Sing SchemaExample)
+
 spec :: Spec
 spec = do
   -- it "show/read JsonRepr properly" $
@@ -93,6 +103,10 @@ spec = do
       migrationList
       schemaJson
         `shouldSatisfy` isValid
+  it "validate json series" $ property $
+    SC.over schemaJsonSeries $ \x ->
+      isValid (parseAndValidateJson @SchemaExample x)
+
 
 main :: IO ()
 main = hspec spec

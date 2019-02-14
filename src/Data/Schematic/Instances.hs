@@ -4,6 +4,7 @@
 module Data.Schematic.Instances where
 
 import Data.Scientific
+import Data.Text (Text, pack)
 import Data.Vector as V
 import Data.Vinyl
 import Test.SmallCheck.Series
@@ -21,3 +22,6 @@ instance Serial m a => Serial m (V.Vector a) where
 
 instance Monad m => Serial m Scientific where
   series = scientific <$> series <*> series
+
+instance Monad m => Serial m Text where
+  series = pack <$> series
