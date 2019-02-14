@@ -76,8 +76,8 @@ schemaJson = "{\"foo\": [13], \"bar\": null}"
 schemaJson2 :: ByteString
 schemaJson2 = "{\"foo\": [3], \"bar\": null}"
 
-schemaJsonSeries :: Monad m => SC.Series m Value
-schemaJsonSeries = valueSeries $ fromSing (sing :: Sing SchemaExample)
+schemaJsonSeries :: Monad m => SC.Series m (JsonRepr SchemaExample)
+schemaJsonSeries = series
 
 spec :: Spec
 spec = do
@@ -105,7 +105,7 @@ spec = do
         `shouldSatisfy` isValid
   it "validates json series" $ property $
     SC.over schemaJsonSeries $ \x ->
-      isValid (parseAndValidateJson @SchemaExample x)
+      isValid (parseAndValidateJson @SchemaExample (toJSON x))
 
 
 main :: IO ()

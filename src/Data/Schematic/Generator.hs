@@ -1,14 +1,16 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Data.Schematic.Generator where
 
-import Data.Aeson (Value(..))
-import qualified Data.HashMap.Lazy as H
-import Data.Maybe
-import Data.Schematic.Schema
-import Data.Text (Text, pack)
+import           Data.Maybe
+import           Data.Schematic.Schema
+import           Data.Scientific
+import           Data.Singletons
+import           Data.Text (Text, pack)
 import qualified Data.Vector as V
-import Data.Schematic.Generator.Regex
-import Data.Schematic.Verifier
-import Test.SmallCheck.Series
+import           Data.Vinyl
+import           Data.Schematic.Generator.Regex
+import           Data.Schematic.Verifier
+import           Test.SmallCheck.Series
 
 maxHigh :: Int
 maxHigh = 30
@@ -30,14 +32,14 @@ textLengthSeries =
 textEnumSeries :: Monad m => [Text] -> Series m Text
 textEnumSeries enum = generate $ \depth -> take depth enum
 
-textSeries :: Monad m => [DemotedTextConstraint] -> Series m Value
+textSeries :: Monad m => [DemotedTextConstraint] -> Series m Text
 textSeries cs = do
   let mvcs = verifyTextConstraints cs
   case mvcs of
     Just vcs -> do
       n <- textSeries' vcs
-      pure $ String n
-    Nothing -> pure Null
+      pure $ n
+    Nothing -> pure "error"
 
 textSeries' :: Monad m => [VerifiedTextConstraint] -> Series m Text
 textSeries' [] = pure "sample"
@@ -51,16 +53,16 @@ textSeries' vcs = do
         Just e -> regexSeries e
         Nothing -> textLengthSeries vcs
 
-numberSeries :: Monad m => [DemotedNumberConstraint] -> Series m Value
+numberSeries :: Monad m => [DemotedNumberConstraint] -> Series m Scientific
 numberSeries cs = do
   let mvcs = verifyNumberConstraints cs
   case mvcs of
     Just vcs -> do
       n <- numberSeries' vcs
-      pure $ Number $ fromIntegral n
-    Nothing -> pure Null
+      pure $ n
+    Nothing -> pure 0
 
-numberSeries' :: Monad m => VerifiedNumberConstraint -> Series m Integer
+numberSeries' :: Monad m => VerifiedNumberConstraint -> Series m Scientific
 numberSeries' =
   \case
     VNEq eq -> pure $ fromIntegral eq
@@ -70,31 +72,47 @@ numberSeries' =
       n <- generate $ \depth -> take depth [l .. h]
       pure $ fromIntegral n
 
-arraySeries ::
-     Monad m => [DemotedArrayConstraint] -> DemotedSchema -> Series m Value
-arraySeries cs sch = do
+arraySeries
+  :: (Monad m, Serial m (JsonRepr s))
+  => [DemotedArrayConstraint]
+  -> Series m (V.Vector (JsonRepr s))
+arraySeries cs = do
   let mvcs = verifyArrayConstraint cs
   case mvcs of
-    Just vcs -> arraySeries' vcs sch
-    Nothing -> pure Null
+    Just vcs -> arraySeries' vcs
+    Nothing -> pure V.empty
 
-arraySeries' ::
-     Monad m => Maybe VerifiedArrayConstraint -> DemotedSchema -> Series m Value
-arraySeries' ml sch = do
-  objs <- V.replicateM (maybe minRepeat f ml) (valueSeries sch)
-  pure $ Array objs
+arraySeries'
+  :: forall m s. (Monad m, Serial m (JsonRepr s))
+  => Maybe VerifiedArrayConstraint
+  -> Series m (V.Vector (JsonRepr s))
+arraySeries' ml = do
+  objs <- V.replicateM (maybe minRepeat f ml) (series :: Series m (JsonRepr s))
+  pure $ objs
   where
     f (VAEq l) = fromIntegral l
 
-valueSeries :: Monad m => DemotedSchema -> Series m Value
-valueSeries (DSchemaText cs) = textSeries cs
-valueSeries (DSchemaNumber cs) = numberSeries cs
-valueSeries DSchemaBoolean = Bool <$> pure True \/ pure False
-valueSeries (DSchemaObject pairs') =
-  Object <$> (decDepth $ mapM valueSeries $ H.fromList pairs')
-valueSeries (DSchemaArray cs sch) = arraySeries cs sch
-valueSeries DSchemaNull = pure Null
-valueSeries (DSchemaOptional sch) = pure Null \/ valueSeries sch
-valueSeries (DSchemaUnion schs) = do
-  objs <- mapM valueSeries schs
-  pure $ Array $ V.fromList objs
+instance (Monad m, Serial m Text, SingI cs)
+  => Serial m (JsonRepr ('SchemaText cs)) where
+  series = decDepth $ fmap ReprText $ textSeries $ fromSing (sing :: Sing cs)
+
+instance (Monad m, Serial m Scientific, SingI cs)
+  => Serial m (JsonRepr ('SchemaNumber cs)) where
+  series = decDepth $ fmap ReprNumber
+    $ numberSeries $ fromSing (sing :: Sing cs)
+
+instance Monad m => Serial m (JsonRepr 'SchemaNull) where
+  series = cons0 ReprNull
+
+instance (Serial m (JsonRepr s), Serial m (V.Vector (JsonRepr s)), SingI cs)
+  => Serial m (JsonRepr ('SchemaArray cs s)) where
+  series = decDepth $ fmap ReprArray
+    $ arraySeries $ fromSing (sing :: Sing cs)
+
+instance (Serial m (JsonRepr s))
+  => Serial m (JsonRepr ('SchemaOptional s)) where
+  series = cons1 ReprOptional
+
+instance (Monad m, Serial m (Rec FieldRepr fs))
+  => Serial m (JsonRepr ('SchemaObject fs)) where
+  series = cons1 ReprObject

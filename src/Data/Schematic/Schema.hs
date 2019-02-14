@@ -352,29 +352,6 @@ instance V.RecAll FieldRepr fs Show => Show (JsonRepr ('SchemaObject fs)) where
 instance Show (JsonRepr s) => Show (JsonRepr ('SchemaOptional s)) where
   show (ReprOptional s) = "ReprOptional " P.++ show s
 
-instance (Monad m, Serial m Text)
-  => Serial m (JsonRepr ('SchemaText cs)) where
-  series = cons1 ReprText
-
-instance (Monad m, Serial m Scientific)
-  => Serial m (JsonRepr ('SchemaNumber cs)) where
-  series = cons1 ReprNumber
-
-instance Monad m => Serial m (JsonRepr 'SchemaNull) where
-  series = cons0 ReprNull
-
-instance (Serial m (V.Vector (JsonRepr s)))
-  => Serial m (JsonRepr ('SchemaArray cs s)) where
-  series = cons1 ReprArray
-
-instance (Serial m (JsonRepr s))
-  => Serial m (JsonRepr ('SchemaOptional s)) where
-  series = cons1 ReprOptional
-
-instance (Monad m, Serial m (Rec FieldRepr fs))
-  => Serial m (JsonRepr ('SchemaObject fs)) where
-  series = cons1 ReprObject
-
 instance Eq (Rec FieldRepr fs) => Eq (JsonRepr ('SchemaObject fs)) where
   ReprObject a == ReprObject b = a == b
 
