@@ -33,6 +33,10 @@ type SchemaExample = 'SchemaObject
   '[ '("foo", 'SchemaArray '[ 'AEq 1] ('SchemaNumber '[ 'NGt 10]))
    , '("bar", 'SchemaOptional ('SchemaText '[ 'TEnum '["foo", "bar"]]))]
 
+type SchemaExample2 = 'SchemaObject
+  '[ '("foo", 'SchemaArray '[ 'AEq 2] ('SchemaText '[ 'TGt 10]))
+   , '("bar", 'SchemaOptional ('SchemaText '[ 'TRegex "[0-9]+"]))]
+
 jsonExample :: JsonRepr SchemaExample
 jsonExample = withRepr @SchemaExample
    $ field @"bar" (Just "bar")
@@ -79,6 +83,9 @@ schemaJson2 = "{\"foo\": [3], \"bar\": null}"
 schemaJsonSeries :: Monad m => SC.Series m (JsonRepr SchemaExample)
 schemaJsonSeries = series
 
+schemaJsonSeries2 :: Monad m => SC.Series m (JsonRepr SchemaExample2)
+schemaJsonSeries2 = series
+
 spec :: Spec
 spec = do
   -- it "show/read JsonRepr properly" $
@@ -106,6 +113,9 @@ spec = do
   it "validates json series" $ property $
     SC.over schemaJsonSeries $ \x ->
       isValid (parseAndValidateJson @SchemaExample (toJSON x))
+  it "validates json series 2" $ property $
+    SC.over schemaJsonSeries2 $ \x ->
+      isValid (parseAndValidateJson @SchemaExample2 (toJSON x))
 
 
 main :: IO ()

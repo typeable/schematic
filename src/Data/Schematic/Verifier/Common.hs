@@ -6,7 +6,7 @@ simplifyNumberConstraint :: ([Integer] -> Integer) -> [Integer] -> Maybe Integer
 simplifyNumberConstraint f =
   \case
     [] -> Nothing
-    x -> Just $ f x
+    x  -> Just $ f x
 
 simplifyDNLs :: [Integer] -> Maybe Integer
 simplifyDNLs = simplifyNumberConstraint minimum
@@ -17,8 +17,8 @@ simplifyDNGs = simplifyNumberConstraint maximum
 verifyDNEq :: [Integer] -> Maybe (Maybe Integer)
 verifyDNEq x =
   case nub x of
-    [] -> Just Nothing
-    [y] -> Just $ Just y
+    []      -> Just Nothing
+    [y]     -> Just $ Just y
     (_:_:_) -> Nothing
 
 verify3 :: Maybe Integer -> Maybe Integer -> Maybe Integer -> Maybe ()

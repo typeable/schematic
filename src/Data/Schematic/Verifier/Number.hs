@@ -20,9 +20,10 @@ verifyNumberConstraints ::
      [DemotedNumberConstraint]
   -> Maybe VerifiedNumberConstraint
 verifyNumberConstraints cs' = do
-  let cs = toStrictNumber cs'
-      mlt = simplifyDNLs [x | DNLt x <- cs]
-      mgt = simplifyDNGs [x | DNGt x <- cs]
+  let
+    cs = toStrictNumber cs'
+    mlt = simplifyDNLs [x | DNLt x <- cs]
+    mgt = simplifyDNGs [x | DNGt x <- cs]
   meq <- verifyDNEq [x | DNEq x <- cs]
   verifyEquations mgt meq mlt
   Just $
