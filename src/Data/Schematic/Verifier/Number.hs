@@ -1,6 +1,6 @@
 module Data.Schematic.Verifier.Number where
 
-import Data.Schematic
+import {-# SOURCE #-} Data.Schematic.Schema
 import Data.Schematic.Verifier.Common
 
 toStrictNumber :: [DemotedNumberConstraint] -> [DemotedNumberConstraint]
@@ -8,16 +8,15 @@ toStrictNumber = map f
   where
     f (DNLe x) = DNLt (x + 1)
     f (DNGe x) = DNGt (x - 1)
-    f x = x
+    f x        = x
 
 data VerifiedNumberConstraint
   = VNEq Integer
-  | VNBounds (Maybe Integer)
-             (Maybe Integer)
+  | VNBounds (Maybe Integer) (Maybe Integer)
   deriving (Show)
 
-verifyNumberConstraints ::
-     [DemotedNumberConstraint]
+verifyNumberConstraints
+  :: [DemotedNumberConstraint]
   -> Maybe VerifiedNumberConstraint
 verifyNumberConstraints cs' = do
   let

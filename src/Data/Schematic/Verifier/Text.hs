@@ -2,7 +2,7 @@ module Data.Schematic.Verifier.Text where
 
 import Control.Monad
 import Data.Maybe
-import Data.Schematic
+import {-# SOURCE #-} Data.Schematic.Schema
 import Data.Schematic.Verifier.Common
 import Data.Text (Text, unpack)
 import Text.Regex.TDFA.Pattern
@@ -13,15 +13,12 @@ toStrictTextLength = map f
   where
     f (DTLe x) = DTLt (x + 1)
     f (DTGe x) = DTGt (x - 1)
-    f x = x
+    f x        = x
 
 data VerifiedTextConstraint
   = VTEq Integer
-  | VTBounds (Maybe Integer)
-             (Maybe Integer)
-  | VTRegex Text
-            Integer
-            (Maybe Integer)
+  | VTBounds (Maybe Integer) (Maybe Integer)
+  | VTRegex Text Integer (Maybe Integer)
   | VTEnum [Text]
   deriving (Show)
 
@@ -29,9 +26,10 @@ verifyTextLengthConstraints
   :: [DemotedTextConstraint]
   -> Maybe (Maybe VerifiedTextConstraint)
 verifyTextLengthConstraints cs' = do
-  let cs = toStrictTextLength cs'
-      mlt = simplifyDNLs [x | DTLt x <- cs]
-      mgt = simplifyDNGs [x | DTGt x <- cs]
+  let
+    cs = toStrictTextLength cs'
+    mlt = simplifyDNLs [x | DTLt x <- cs]
+    mgt = simplifyDNGs [x | DTGt x <- cs]
   meq <- verifyDNEq [x | DTEq x <- cs]
   verifyEquations mgt meq mlt
   case all isNothing ([mgt, meq, mlt] :: [Maybe Integer]) of
@@ -113,10 +111,11 @@ verifyTextConstraints
   -> Maybe [VerifiedTextConstraint]
 verifyTextConstraints cs = do
   regexp <- verifyTextRegexConstraint cs
-  void $ case regexp of
-    Just (VTRegex _ l mh) ->
-      verifyTextLengthConstraints (DTGe l : cs ++ maybeToList (DTLe <$> mh))
-    _                     -> pure Nothing
+  void $
+    case regexp of
+      Just (VTRegex _ l mh) ->
+        verifyTextLengthConstraints (DTGe l : cs ++ maybeToList (DTLe <$> mh))
+      _                     -> pure Nothing
   lengths <- verifyTextLengthConstraints cs
   enums <- verifyTextEnumConstraint cs
   return $ catMaybes [lengths, enums, regexp]

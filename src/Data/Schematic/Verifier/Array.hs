@@ -1,6 +1,6 @@
 module Data.Schematic.Verifier.Array where
 
-import Data.Schematic
+import {-# SOURCE #-} Data.Schematic.Schema
 import Data.Schematic.Verifier.Common
 
 data VerifiedArrayConstraint =

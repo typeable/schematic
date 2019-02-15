@@ -1,15 +1,15 @@
 module Data.Schematic.Generator.Regex where
 
-import Control.Monad
-import Data.List
-import Data.Maybe
+import           Control.Monad
+import           Data.List
+import           Data.Maybe
 import qualified Data.Set as S
-import Data.Text (Text, unpack)
-import Data.Text.Lazy (toStrict)
-import Data.Text.Lazy.Builder (Builder, singleton, toLazyText)
-import Test.SmallCheck.Series
-import Text.Regex.TDFA.Pattern
-import Text.Regex.TDFA.ReadRegex (parseRegex)
+import           Data.Text (Text, unpack)
+import           Data.Text.Lazy (toStrict)
+import           Data.Text.Lazy.Builder (Builder, singleton, toLazyText)
+import           Test.SmallCheck.Series
+import           Text.Regex.TDFA.Pattern
+import           Text.Regex.TDFA.ReadRegex (parseRegex)
 
 
 minRepeat :: Int
@@ -22,7 +22,7 @@ regexSeries :: (Monad m) => Text -> Series m Text
 regexSeries regexp =
   case parseRegex . unpack $ regexp of
     Right (p, _) -> toStrict . toLazyText <$> regexSeries' p
-    Left _ -> pure ""
+    Left _       -> pure ""
 
 regexSeries' :: (Monad m) => Pattern -> Series m Builder
 regexSeries' pt =

@@ -13,6 +13,7 @@ import           Data.HashMap.Strict as H
 import           Data.Kind
 import           Data.Maybe
 import           Data.Schematic.Instances ()
+import           Data.Schematic.Generator
 import           Data.Scientific
 import           Data.Singletons.Prelude.List hiding (All, Union)
 import           Data.Singletons.TH
@@ -24,7 +25,8 @@ import           Data.Vinyl hiding (Dict)
 import qualified Data.Vinyl.TypeLevel as V
 import           GHC.Exts
 import           GHC.Generics (Generic)
-import           GHC.TypeLits (SomeNat(..), SomeSymbol(..), someSymbolVal, someNatVal)
+import           GHC.TypeLits
+  (SomeNat(..), SomeSymbol(..), someNatVal, someSymbolVal)
 import           Prelude as P
 import           Test.SmallCheck.Series
 
@@ -56,25 +58,25 @@ instance SingKind TextConstraint where
     STRegex s -> withKnownSymbol s (DTRegex $ T.pack $ symbolVal s)
     STEnum s -> let
       d :: Sing (s :: [Symbol]) -> [Text]
-      d SNil              = []
+      d SNil               = []
       d (SCons ss@SSym fs) = T.pack (symbolVal ss) : d fs
       in DTEnum $ d s
   toSing = \case
     DTEq n -> case someNatVal n of
       Just (SomeNat (_ :: Proxy n)) -> SomeSing (STEq (SNat :: Sing n))
-      Nothing -> error "Negative singleton nat"
+      Nothing                       -> error "Negative singleton nat"
     DTLt n -> case someNatVal n of
       Just (SomeNat (_ :: Proxy n)) -> SomeSing (STLt (SNat :: Sing n))
-      Nothing -> error "Negative singleton nat"
+      Nothing                       -> error "Negative singleton nat"
     DTLe n -> case someNatVal n of
       Just (SomeNat (_ :: Proxy n)) -> SomeSing (STLe (SNat :: Sing n))
-      Nothing -> error "Negative singleton nat"
+      Nothing                       -> error "Negative singleton nat"
     DTGt n -> case someNatVal n of
       Just (SomeNat (_ :: Proxy n)) -> SomeSing (STGt (SNat :: Sing n))
-      Nothing -> error "Negative singleton nat"
+      Nothing                       -> error "Negative singleton nat"
     DTGe n -> case someNatVal n of
       Just (SomeNat (_ :: Proxy n)) -> SomeSing (STGe (SNat :: Sing n))
-      Nothing -> error "Negative singleton nat"
+      Nothing                       -> error "Negative singleton nat"
     DTRegex s -> case someSymbolVal (T.unpack s) of
       SomeSymbol (_ :: Proxy n) -> SomeSing (STRegex (SSym :: Sing n))
     DTEnum ss -> case toSing ss of
@@ -161,19 +163,19 @@ instance SingKind NumberConstraint where
   toSing = \case
     DNEq n -> case someNatVal n of
       Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNEq (SNat :: Sing n))
-      Nothing -> error "Negative singleton nat"
+      Nothing                       -> error "Negative singleton nat"
     DNGt n -> case someNatVal n of
       Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNGt (SNat :: Sing n))
-      Nothing -> error "Negative singleton nat"
+      Nothing                       -> error "Negative singleton nat"
     DNGe n -> case someNatVal n of
       Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNGe (SNat :: Sing n))
-      Nothing -> error "Negative singleton nat"
+      Nothing                       -> error "Negative singleton nat"
     DNLt n -> case someNatVal n of
       Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNLt (SNat :: Sing n))
-      Nothing -> error "Negative singleton nat"
+      Nothing                       -> error "Negative singleton nat"
     DNLe n -> case someNatVal n of
       Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNLe (SNat :: Sing n))
-      Nothing -> error "Negative singleton nat"
+      Nothing                       -> error "Negative singleton nat"
 
 data ArrayConstraint
   = AEq Nat
@@ -197,7 +199,7 @@ instance SingKind ArrayConstraint where
   toSing = \case
     DAEq n -> case someNatVal n of
       Just (SomeNat (_ :: Proxy n)) -> SomeSing (SAEq (SNat :: Sing n))
-      Nothing -> error "Negative singleton nat"
+      Nothing                       -> error "Negative singleton nat"
 
 data Schema
   = SchemaText [TextConstraint]
@@ -333,6 +335,31 @@ data JsonRepr :: Schema -> Type where
   ReprObject :: Rec FieldRepr fs -> JsonRepr ('SchemaObject fs)
   ReprOptional :: Maybe (JsonRepr s) -> JsonRepr ('SchemaOptional s)
   ReprUnion :: Union JsonRepr (h ': tl) -> JsonRepr ('SchemaUnion (h ': tl))
+
+instance (Monad m, Serial m Text, SingI cs)
+  => Serial m (JsonRepr ('SchemaText cs)) where
+  series = decDepth $ fmap ReprText $ textSeries $ fromSing (sing :: Sing cs)
+
+instance (Monad m, Serial m Scientific, SingI cs)
+  => Serial m (JsonRepr ('SchemaNumber cs)) where
+  series = decDepth $ fmap ReprNumber
+    $ numberSeries $ fromSing (sing :: Sing cs)
+
+instance Monad m => Serial m (JsonRepr 'SchemaNull) where
+  series = cons0 ReprNull
+
+instance (Serial m (JsonRepr s), Serial m (V.Vector (JsonRepr s)), SingI cs)
+  => Serial m (JsonRepr ('SchemaArray cs s)) where
+  series = decDepth $ fmap ReprArray
+    $ arraySeries $ fromSing (sing :: Sing cs)
+
+instance (Serial m (JsonRepr s))
+  => Serial m (JsonRepr ('SchemaOptional s)) where
+  series = cons1 ReprOptional
+
+instance (Monad m, Serial m (Rec FieldRepr fs))
+  => Serial m (JsonRepr ('SchemaObject fs)) where
+  series = cons1 ReprObject
 
 -- | Move to the union package
 instance Show (JsonRepr ('SchemaText cs)) where
@@ -479,7 +506,7 @@ instance J.ToJSON (JsonRepr a) where
   toJSON (ReprText t)     = J.String t
   toJSON (ReprNumber n)   = J.Number n
   toJSON (ReprOptional s) = case s of
-    Just v -> toJSON v
+    Just v  -> toJSON v
     Nothing -> J.Null
   toJSON (ReprArray v)    = J.Array $ toJSON <$> v
   toJSON (ReprObject r)   = J.Object . H.fromList . fold $ r

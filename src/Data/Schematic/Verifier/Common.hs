@@ -6,7 +6,7 @@ simplifyNumberConstraint :: ([Integer] -> Integer) -> [Integer] -> Maybe Integer
 simplifyNumberConstraint f =
   \case
     [] -> Nothing
-    x  -> Just $ f x
+    x -> Just $ f x
 
 simplifyDNLs :: [Integer] -> Maybe Integer
 simplifyDNLs = simplifyNumberConstraint minimum
