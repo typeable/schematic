@@ -2,7 +2,8 @@
 
 ## 0.5.0.0 -- 2019-02-20
 
-GHC 8.6, json generation by schema definition
+GHC 8.6, json generation by schema definition, validation bug fixes, better
+parsing error messages.
 
 ## 0.4.3.0 -- 2018-07-12
 
