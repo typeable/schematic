@@ -64,28 +64,28 @@ validateTextConstraint (JSONPath path) t = \case
   STLt n -> do
     let
       nlen      = withKnownNat n $ natVal n
-      predicate = nlen < (fromIntegral $ T.length t)
+      predicate = nlen > (fromIntegral $ T.length t)
       errMsg    = "length of " <> path <> " should be < " <> T.pack (show nlen)
       warn      = vWarning $ mmSingleton path (pure errMsg)
     unless predicate warn
   STLe n -> do
     let
       nlen      = withKnownNat n $ natVal n
-      predicate = nlen <= (fromIntegral $ T.length t)
+      predicate = nlen >= (fromIntegral $ T.length t)
       errMsg    = "length of " <> path <> " should be <= " <> T.pack (show nlen)
       warn      = vWarning $ mmSingleton path (pure errMsg)
     unless predicate warn
   STGt n -> do
     let
       nlen      = withKnownNat n $ natVal n
-      predicate = nlen > (fromIntegral $ T.length t)
+      predicate = nlen < (fromIntegral $ T.length t)
       errMsg    = "length of " <> path <> " should be > " <> T.pack (show nlen)
       warn      = vWarning $ mmSingleton path (pure errMsg)
     unless predicate warn
   STGe n -> do
     let
       nlen      = withKnownNat n $ natVal n
-      predicate = nlen >= (fromIntegral $ T.length t)
+      predicate = nlen <= (fromIntegral $ T.length t)
       errMsg    = "length of " <> path <> " should be >= " <> T.pack (show nlen)
       warn      = vWarning $ mmSingleton path (pure errMsg)
     unless predicate warn
