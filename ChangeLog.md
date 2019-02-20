@@ -1,5 +1,9 @@
 # Revision history for schematic
 
+## 0.5.0.0 -- 2019-02-20
+
+GHC 8.6, json generation by schema definition
+
 ## 0.4.3.0 -- 2018-07-12
 
 GHC 8.4 support, dropping support for older GHC versions
