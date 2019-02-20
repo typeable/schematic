@@ -36,6 +36,7 @@ if [ "$?" -eq "0" ]; then
   curl -X PUT -H 'Content-Type: application/x-tar' -H 'Content-Encoding: gzip' --data-binary "$packagename-$version-docs.tar.gz" "https://$username:$password@hackage.haskell.org/package/$packagename-$version/candidate/docs"
   open "https://hackage.haskell.org/package/$packagename-$version/candidate/"
   cd $rootdir
+  echo "To publish the candidate, use 'cabal upload --publish'."
   exit $?
 else
   echo -e "\033[1;31mNot in a stack-powered project\033[0m"
