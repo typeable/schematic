@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 module Data.Schematic.Migration where
 
@@ -8,7 +9,7 @@ import Data.Schematic.DSL
 import Data.Schematic.Lens
 import Data.Schematic.Path
 import Data.Schematic.Schema
-import Data.Singletons.Prelude hiding (All, (:.))
+import Data.Singletons.Prelude hiding ((:.), All)
 import Data.Singletons.TypeLits
 import Data.Tagged
 import Data.Vinyl
@@ -156,10 +157,17 @@ data MList :: (Type -> Type) -> [Schema] -> Type where
 
 infixr 7 :&&
 
+#if MIN_VERSION_base(4,12,0)
+migrateObject
+  :: forall m fs fh. (FSubset fs fs (FImage fs fs), Monad m, RMap fh, RMap fs)
+  => (Rec (Tagged fs :. FieldRepr) fh -> m (Rec (Tagged fs :. FieldRepr) fs))
+  -> Tagged ('SchemaObject fs) (JsonRepr ('SchemaObject fh) -> m (JsonRepr ('SchemaObject fs)))
+#else
 migrateObject
   :: forall m fs fh. (FSubset fs fs (FImage fs fs), Monad m)
   => (Rec (Tagged fs :. FieldRepr) fh -> m (Rec (Tagged fs :. FieldRepr) fs))
   -> Tagged ('SchemaObject fs) (JsonRepr ('SchemaObject fh) -> m (JsonRepr ('SchemaObject fs)))
+#endif
 migrateObject f = Tagged $ \(ReprObject r) -> do
   res <- f $ rmap (Compose . Tagged) r
   pure $ withRepr @('SchemaObject fs) res

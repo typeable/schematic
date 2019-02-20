@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP                 #-}
 
 module Data.Schematic.DSL where
 
@@ -17,11 +18,19 @@ import           Data.Vinyl
 import           Data.Vinyl.Functor
 
 
+#if MIN_VERSION_base(4,12,0)
 type Constructor a
-  = forall fields b. (fields ~ FieldsOf a, FSubset fields b (FImage fields b))
+  = forall fields b
+  . (fields ~ FieldsOf a, FSubset fields b (FImage fields b), RMap fields)
   => Rec (Tagged fields :. FieldRepr) b
   -> JsonRepr ('SchemaObject fields)
-
+#else
+type Constructor a
+  = forall fields b
+  . (fields ~ FieldsOf a, FSubset fields b (FImage fields b))
+  => Rec (Tagged fields :. FieldRepr) b
+  -> JsonRepr ('SchemaObject fields)
+#endif
 withRepr :: Constructor a
 withRepr = ReprObject . rmap (unTagged . getCompose) . fcast
 

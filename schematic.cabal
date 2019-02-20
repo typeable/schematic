@@ -65,7 +65,7 @@ library
                      , TypeOperators
                      , TypeSynonymInstances
                      , UndecidableInstances
-  build-depends:       base >=4.11 && <4.12
+  build-depends:       base >=4.11 && <4.13
                      , bytestring
                      , aeson >= 1
                      , containers
@@ -95,7 +95,7 @@ test-suite spec
   default-language:   Haskell2010
   build-depends:       HUnit
                      , aeson >= 1
-                     , base >=4.11 && <4.12
+                     , base >=4.11 && <4.13
                      , bytestring
                      , containers
                      , hjsonschema
