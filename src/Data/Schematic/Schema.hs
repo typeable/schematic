@@ -12,8 +12,8 @@ import           Data.Aeson.Types as J
 import           Data.HashMap.Strict as H
 import           Data.Kind
 import           Data.Maybe
-import           Data.Schematic.Instances ()
 import           Data.Schematic.Generator
+import           Data.Schematic.Instances ()
 import           Data.Scientific
 import           Data.Singletons.Prelude.List hiding (All, Union)
 import           Data.Singletons.TH
@@ -368,6 +368,9 @@ instance Show (JsonRepr ('SchemaText cs)) where
 instance Show (JsonRepr ('SchemaNumber cs)) where
   show (ReprNumber n) = "ReprNumber " P.++ show n
 
+instance Show (JsonRepr 'SchemaBoolean) where
+  show (ReprBoolean n) = "ReprBoolena " P.++ show n
+
 instance Show (JsonRepr 'SchemaNull) where show _ = "ReprNull"
 
 instance Show (JsonRepr s) => Show (JsonRepr ('SchemaArray acs s)) where
@@ -388,6 +391,9 @@ instance Eq (JsonRepr ('SchemaText cs)) where
 instance Eq (JsonRepr ('SchemaNumber cs)) where
   ReprNumber a == ReprNumber b = a == b
 
+instance Eq (JsonRepr 'SchemaBoolean) where
+  ReprBoolean a == ReprBoolean b = a == b
+
 instance Eq (JsonRepr 'SchemaNull) where
   ReprNull == ReprNull = True
 
@@ -405,6 +411,9 @@ instance Ord (JsonRepr ('SchemaText cs)) where
 
 instance Ord (JsonRepr ('SchemaNumber cs)) where
   ReprNumber a `compare` ReprNumber b = a `compare` b
+
+instance Ord (JsonRepr 'SchemaBoolean) where
+  ReprBoolean a `compare` ReprBoolean b = a `compare` b
 
 instance Ord (JsonRepr 'SchemaNull) where
   compare _ _ = EQ
