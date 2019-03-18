@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE OverloadedLists #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE OverloadedLists     #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# OPTIONS_GHC -fprint-explicit-kinds #-}
 
 module Data.Schematic.Schema where
@@ -376,8 +377,16 @@ instance Show (JsonRepr 'SchemaNull) where show _ = "ReprNull"
 instance Show (JsonRepr s) => Show (JsonRepr ('SchemaArray acs s)) where
   show (ReprArray v) = "ReprArray " P.++ show v
 
+#if MIN_VERSION_base(4,12,0)
+instance
+  ( V.RecAll FieldRepr fs Show, RMap fs, ReifyConstraint Show FieldRepr fs
+  , RecordToList fs )
+  => Show (JsonRepr ('SchemaObject fs)) where
+  show (ReprObject fs) = "ReprObject " P.++ show fs
+#else
 instance V.RecAll FieldRepr fs Show => Show (JsonRepr ('SchemaObject fs)) where
   show (ReprObject fs) = "ReprObject " P.++ show fs
+#endif
 
 instance Show (JsonRepr s) => Show (JsonRepr ('SchemaOptional s)) where
   show (ReprOptional s) = "ReprOptional " P.++ show s
