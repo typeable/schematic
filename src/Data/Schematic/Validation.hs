@@ -166,16 +166,25 @@ validateArrayConstraint (JSONPath path) v = \case
       warn      = vWarning $ mmSingleton path (pure errMsg)
     unless predicate warn
 
-class Validatable schema where
-  validateJsonRepr :: [DemotedPathSegment] -> JsonRepr schema -> Validation ()
-
-validateJsonRepr
-  :: forall schema. SingI schema
+lookaheadJsonRepr
+  :: forall schema. (SingI schema)
   => [DemotedPathSegment]
   -> JsonRepr schema
   -> Validation ()
-validateJsonRepr dpath jr = withSingI (sing :: Sing schema) $ case jr of
-  ReprText t -> case sing :: Sing schema of
+lookaheadJsonRepr dpath jr = case sing :: Sing schema of
+  SSchemaText s    -> validateJsonRepr @schema dpath jr
+  SSchemaNumber s  -> validateJsonRepr @schema  dpath jr
+  SSchemaNull      -> validateJsonRepr @schema dpath jr
+  SSchemaBoolean -> validateJsonRepr @schema dpath jr
+  SSchemaArray _ _  -> validateJsonRepr @schema dpath jr
+  SSchemaObject _  -> validateJsonRepr @schema dpath jr
+  SSchemaUnion _   -> validateJsonRepr @schema dpath jr
+
+class Validatable schema where
+  validateJsonRepr :: [DemotedPathSegment] -> JsonRepr schema -> Validation ()
+
+instance SingI (SchemaText s) => Validatable (SchemaText s) where
+  validateJsonRepr dpath (ReprText t) = case sing :: Sing (SchemaText s) of
     SSchemaText scs -> do
       let
         process :: Sing (cs :: [TextConstraint]) -> Validation ()
@@ -184,7 +193,9 @@ validateJsonRepr dpath jr = withSingI (sing :: Sing schema) $ case jr of
           validateTextConstraint (demotedPathToText dpath) t c
           process cs
       process scs
-  ReprNumber n -> case sing :: Sing schema of
+
+instance SingI (SchemaNumber s) => Validatable (SchemaNumber s) where
+  validateJsonRepr dpath (ReprNumber n) = case sing :: Sing (SchemaNumber s) of
     SSchemaNumber scs -> do
       let
         process :: Sing (cs :: [NumberConstraint]) -> Validation ()
@@ -193,9 +204,13 @@ validateJsonRepr dpath jr = withSingI (sing :: Sing schema) $ case jr of
           validateNumberConstraint (demotedPathToText dpath) n c
           process cs
       process scs
-  ReprNull -> pure ()
-  ReprBoolean _ -> pure ()
-  ReprArray v -> case sing :: Sing schema of
+
+instance Validatable SchemaNull where validateJsonRepr _ _ = pure ()
+
+instance Validatable SchemaBoolean where validateJsonRepr _ _ = pure ()
+
+instance SingI (SchemaArray css s) => Validatable (SchemaArray css s) where
+  validateJsonRepr dpath (ReprArray v) = case sing :: Sing (SchemaArray css s) of
     SSchemaArray acs s -> do
       let
         process :: Sing (cs :: [ArrayConstraint]) -> Validation ()
@@ -206,12 +221,16 @@ validateJsonRepr dpath jr = withSingI (sing :: Sing schema) $ case jr of
       process acs
       for_ (V.indexed v) $ \(ix, jr') -> do
         let newPath = dpath <> pure (DIx $ fromIntegral ix)
-        withSingI s $ validateJsonRepr newPath jr'
-  ReprOptional d -> case sing :: Sing schema of
-    SSchemaOptional ss -> case d of
-      Just x  -> withSingI ss $ validateJsonRepr dpath x
+        withSingI s $ lookaheadJsonRepr newPath jr'
+
+instance SingI (SchemaOptional s) => Validatable (SchemaOptional s) where
+  validateJsonRepr dpath (ReprOptional s) = case sing :: Sing (SchemaOptional s) of
+    SSchemaOptional ss -> case s of
+      Just x  -> withSingI ss $ lookaheadJsonRepr dpath x
       Nothing -> pure ()
-  ReprObject fs -> case sing :: Sing schema of
+
+instance SingI (SchemaObject s) => Validatable (SchemaObject s) where
+  validateJsonRepr dpath (ReprObject fs) = case sing :: Sing (SchemaObject s) of
     SSchemaObject _ -> go fs
       where
         go :: Rec FieldRepr (ts :: [(Symbol, Schema)] ) -> Validation ()
@@ -219,9 +238,12 @@ validateJsonRepr dpath jr = withSingI (sing :: Sing schema) $ case jr of
         go (f@(FieldRepr d) :& ftl) = do
           let newPath = dpath <> [DKey (knownFieldName f)]
           withSingI (knownFieldSchema f)
-            $ validateJsonRepr newPath d
+            $ lookaheadJsonRepr newPath d
           go ftl
-  ReprUnion u -> pure () -- upeel u (sing :: Sing schema)
+
+instance SingI (SchemaUnion s) => Validatable (SchemaUnion s) where
+  validateJsonRepr dpath (ReprUnion u) = pure ()
+
   -- ReprUnion u -> do
   --   let
   --     v :: forall s. JsonRepr s -> Const (Validation ()) s
@@ -248,7 +270,7 @@ class UPeel ss where
 
 instance (UPeel stl) => UPeel (s ': stl) where
   upeel (That u) (SSchemaUnion (SCons _ stl)) = upeel @stl u (SSchemaUnion stl)
-  upeel (This j) (SSchemaUnion (SCons s _))   = withSingI s $ validateJsonRepr mempty j
+  upeel (This j) (SSchemaUnion (SCons s _))   = withSingI s $ lookaheadJsonRepr mempty j
 
 umatch' :: UElem a as i => Sing a -> Union JsonRepr as -> Maybe (JsonRepr a)
 umatch' _ = umatch
@@ -263,7 +285,7 @@ parseAndValidateJson v =
     Left s         -> DecodingError $ T.pack s
     Right jsonRepr ->
       let
-        validate = validateJsonRepr [] jsonRepr
+        validate = lookaheadJsonRepr [] jsonRepr
         res      = runIdentity . runValidationTEither $ validate
       in case res of
         Left em  -> ValidationError em
