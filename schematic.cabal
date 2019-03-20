@@ -25,6 +25,7 @@ library
                      , Data.Schematic.Migration
                      , Data.Schematic.Path
                      , Data.Schematic.Schema
+                     , Data.Schematic.Constraints
                      , Data.Schematic.Validation
                      , Data.Schematic.Verifier
                      , Data.Schematic.Verifier.Array

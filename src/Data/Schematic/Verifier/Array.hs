@@ -1,14 +1,14 @@
 module Data.Schematic.Verifier.Array where
 
-import {-# SOURCE #-} Data.Schematic.Schema
+import Data.Schematic.Constraints
 import Data.Schematic.Verifier.Common
+import GHC.Natural
+
 
 data VerifiedArrayConstraint =
-  VAEq Integer
+  VAEq Natural
   deriving (Show)
 
-verifyArrayConstraint ::
-     [DemotedArrayConstraint] -> Maybe (Maybe VerifiedArrayConstraint)
-verifyArrayConstraint cs = do
-  x <- verifyDNEq [x | DAEq x <- cs]
-  pure $ VAEq <$> x
+verifyArrayConstraint
+  :: [ArrayConstraintT] -> Maybe (Maybe VerifiedArrayConstraint)
+verifyArrayConstraint cs = fmap VAEq <$> verifyNEq [x | AEq x <- cs]

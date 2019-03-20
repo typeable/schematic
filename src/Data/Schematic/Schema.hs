@@ -1,7 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE OverloadedLists     #-}
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE CPP       #-}
+{-# LANGUAGE EmptyCase #-}
 {-# OPTIONS_GHC -fprint-explicit-kinds #-}
 
 module Data.Schematic.Schema where
@@ -13,8 +11,11 @@ import           Data.Aeson.Types as J
 import           Data.HashMap.Strict as H
 import           Data.Kind
 import           Data.Maybe
+import           Data.Schematic.Constraints
 import           Data.Schematic.Generator
+import           Data.Schematic.Generator.Regex
 import           Data.Schematic.Instances ()
+import           Data.Schematic.Verifier.Array
 import           Data.Scientific
 import           Data.Singletons.Prelude.List hiding (All, Union)
 import           Data.Singletons.TH
@@ -26,266 +27,32 @@ import           Data.Vinyl hiding (Dict)
 import qualified Data.Vinyl.TypeLevel as V
 import           GHC.Exts
 import           GHC.Generics (Generic)
-import           GHC.TypeLits
-  (SomeNat(..), SomeSymbol(..), someNatVal, someSymbolVal)
+import           GHC.Natural
 import           Prelude as P
-import           Test.SmallCheck.Series
+import           Test.SmallCheck.Series as S
 
+
+singletons [d|
+  data Schema' s n
+    = SchemaText [TextConstraint' s n]
+    | SchemaBoolean
+    | SchemaNumber [NumberConstraint' n]
+    | SchemaObject [(s, Schema' s n)]
+    | SchemaArray [ArrayConstraint' n] (Schema' s n)
+    | SchemaNull
+    | SchemaOptional (Schema' s n)
+    | SchemaUnion [Schema' s n]
+    deriving (Eq, Show, Ord, Generic)
+  |]
+
+type SchemaT = Schema' Text Natural
+type Schema = Schema' Symbol Nat
 
 type family CRepr (s :: Schema) :: Type where
-  CRepr ('SchemaText cs)  = TextConstraint
-  CRepr ('SchemaNumber cs) = NumberConstraint
-  CRepr ('SchemaObject fs) = (String, Schema)
-  CRepr ('SchemaArray ar s) = ArrayConstraint
-
-data TextConstraint
-  = TEq Nat
-  | TLt Nat
-  | TLe Nat
-  | TGt Nat
-  | TGe Nat
-  | TRegex Symbol
-  | TEnum [Symbol]
-  deriving (Generic)
-
-instance SingKind TextConstraint where
-  type Demote TextConstraint = DemotedTextConstraint
-  fromSing = \case
-    STEq n -> withKnownNat n (DTEq . fromIntegral $ natVal n)
-    STLt n -> withKnownNat n (DTLt . fromIntegral $ natVal n)
-    STLe n -> withKnownNat n (DTLe . fromIntegral $ natVal n)
-    STGt n -> withKnownNat n (DTGt . fromIntegral $ natVal n)
-    STGe n -> withKnownNat n (DTGe . fromIntegral $ natVal n)
-    STRegex s -> withKnownSymbol s (DTRegex $ T.pack $ symbolVal s)
-    STEnum s -> let
-      d :: Sing (s :: [Symbol]) -> [Text]
-      d SNil               = []
-      d (SCons ss@SSym fs) = T.pack (symbolVal ss) : d fs
-      in DTEnum $ d s
-  toSing = \case
-    DTEq n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (STEq (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-    DTLt n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (STLt (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-    DTLe n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (STLe (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-    DTGt n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (STGt (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-    DTGe n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (STGe (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-    DTRegex s -> case someSymbolVal (T.unpack s) of
-      SomeSymbol (_ :: Proxy n) -> SomeSing (STRegex (SSym :: Sing n))
-    DTEnum ss -> case toSing ss of
-      SomeSing l -> SomeSing (STEnum l)
-
-data DemotedTextConstraint
-  = DTEq Integer
-  | DTLt Integer
-  | DTLe Integer
-  | DTGt Integer
-  | DTGe Integer
-  | DTRegex Text
-  | DTEnum [Text]
-  deriving (Generic, Eq, Show)
-
-data instance Sing (tc :: TextConstraint) where
-  STEq :: Sing n -> Sing ('TEq n)
-  STLt :: Sing n -> Sing ('TLt n)
-  STLe :: Sing n -> Sing ('TLe n)
-  STGt :: Sing n -> Sing ('TGt n)
-  STGe :: Sing n -> Sing ('TGe n)
-  STRegex :: Sing s -> Sing ('TRegex s)
-  STEnum :: Sing ss -> Sing ('TEnum ss)
-
-instance (KnownNat n) => SingI ('TEq n) where sing = STEq sing
-instance (KnownNat n) => SingI ('TGt n) where sing = STGt sing
-instance (KnownNat n) => SingI ('TGe n) where sing = STGe sing
-instance (KnownNat n) => SingI ('TLt n) where sing = STLt sing
-instance (KnownNat n) => SingI ('TLe n) where sing = STLe sing
-instance (KnownSymbol s, SingI s) => SingI ('TRegex s) where sing = STRegex sing
-instance (SingI ss) => SingI ('TEnum ss) where sing = STEnum sing
-
-instance Eq (Sing ('TEq n)) where _ == _ = True
-instance Eq (Sing ('TLt n)) where _ == _ = True
-instance Eq (Sing ('TLe n)) where _ == _ = True
-instance Eq (Sing ('TGt n)) where _ == _ = True
-instance Eq (Sing ('TGe n)) where _ == _ = True
-instance Eq (Sing ('TRegex t)) where _ == _ = True
-instance Eq (Sing ('TEnum ss)) where _ == _ = True
-
-data NumberConstraint
-  = NLe Nat
-  | NLt Nat
-  | NGt Nat
-  | NGe Nat
-  | NEq Nat
-  deriving (Generic)
-
-data DemotedNumberConstraint
-  = DNLe Integer
-  | DNLt Integer
-  | DNGt Integer
-  | DNGe Integer
-  | DNEq Integer
-  deriving (Generic, Eq, Show)
-
-data instance Sing (nc :: NumberConstraint) where
-  SNEq :: Sing n -> Sing ('NEq n)
-  SNGt :: Sing n -> Sing ('NGt n)
-  SNGe :: Sing n -> Sing ('NGe n)
-  SNLt :: Sing n -> Sing ('NLt n)
-  SNLe :: Sing n -> Sing ('NLe n)
-
-instance KnownNat n => SingI ('NEq n) where sing = SNEq sing
-instance KnownNat n => SingI ('NGt n) where sing = SNGt sing
-instance KnownNat n => SingI ('NGe n) where sing = SNGe sing
-instance KnownNat n => SingI ('NLt n) where sing = SNLt sing
-instance KnownNat n => SingI ('NLe n) where sing = SNLe sing
-
-instance Eq (Sing ('NEq n)) where _ == _ = True
-instance Eq (Sing ('NLt n)) where _ == _ = True
-instance Eq (Sing ('NLe n)) where _ == _ = True
-instance Eq (Sing ('NGt n)) where _ == _ = True
-instance Eq (Sing ('NGe n)) where _ == _ = True
-
-instance SingKind NumberConstraint where
-  type Demote NumberConstraint = DemotedNumberConstraint
-  fromSing = \case
-    SNEq n -> withKnownNat n (DNEq . fromIntegral $ natVal n)
-    SNGt n -> withKnownNat n (DNGt . fromIntegral $ natVal n)
-    SNGe n -> withKnownNat n (DNGe . fromIntegral $ natVal n)
-    SNLt n -> withKnownNat n (DNLt . fromIntegral $ natVal n)
-    SNLe n -> withKnownNat n (DNLe . fromIntegral $ natVal n)
-  toSing = \case
-    DNEq n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNEq (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-    DNGt n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNGt (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-    DNGe n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNGe (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-    DNLt n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNLt (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-    DNLe n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNLe (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-
-data ArrayConstraint
-  = AEq Nat
-  deriving (Generic)
-
-data DemotedArrayConstraint
-  = DAEq Integer
-  deriving (Generic, Eq, Show)
-
-data instance Sing (ac :: ArrayConstraint) where
-  SAEq :: Sing n -> Sing ('AEq n)
-
-instance KnownNat n => SingI ('AEq n) where sing = SAEq sing
-
-instance Eq (Sing ('AEq n)) where _ == _ = True
-
-instance SingKind ArrayConstraint where
-  type Demote ArrayConstraint = DemotedArrayConstraint
-  fromSing = \case
-    SAEq n -> withKnownNat n (DAEq . fromIntegral $ natVal n)
-  toSing = \case
-    DAEq n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SAEq (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-
-data Schema
-  = SchemaText [TextConstraint]
-  | SchemaBoolean
-  | SchemaNumber [NumberConstraint]
-  | SchemaObject [(Symbol, Schema)]
-  | SchemaArray [ArrayConstraint] Schema
-  | SchemaNull
-  | SchemaOptional Schema
-  | SchemaUnion [Schema]
-  deriving (Generic)
-
-data DemotedSchema
-  = DSchemaText [DemotedTextConstraint]
-  | DSchemaNumber [DemotedNumberConstraint]
-  | DSchemaBoolean
-  | DSchemaObject [(Text, DemotedSchema)]
-  | DSchemaArray [DemotedArrayConstraint] DemotedSchema
-  | DSchemaNull
-  | DSchemaOptional DemotedSchema
-  | DSchemaUnion [DemotedSchema]
-  deriving (Generic, Eq, Show)
-
-data instance Sing (schema :: Schema) where
-  SSchemaText :: Sing tcs -> Sing ('SchemaText tcs)
-  SSchemaNumber :: Sing ncs -> Sing ('SchemaNumber ncs)
-  SSchemaBoolean :: Sing 'SchemaBoolean
-  SSchemaArray :: Sing acs -> Sing schema -> Sing ('SchemaArray acs schema)
-  SSchemaObject :: Sing fields -> Sing ('SchemaObject fields)
-  SSchemaOptional :: Sing s -> Sing ('SchemaOptional s)
-  SSchemaNull :: Sing 'SchemaNull
-  SSchemaUnion :: Sing ss -> Sing ('SchemaUnion ss)
-
-instance SingI sl => SingI ('SchemaText sl) where
-  sing = SSchemaText sing
-instance SingI sl => SingI ('SchemaNumber sl) where
-  sing = SSchemaNumber sing
-instance SingI 'SchemaNull where
-  sing = SSchemaNull
-instance SingI 'SchemaBoolean where
-  sing = SSchemaBoolean
-instance (SingI ac, SingI s) => SingI ('SchemaArray ac s) where
-  sing = SSchemaArray sing sing
-instance SingI stl => SingI ('SchemaObject stl) where
-  sing = SSchemaObject sing
-instance SingI s => SingI ('SchemaOptional s) where
-  sing = SSchemaOptional sing
-instance SingI s => SingI ('SchemaUnion s) where
-  sing = SSchemaUnion sing
-
-instance Eq (Sing ('SchemaText cs)) where _ == _ = True
-instance Eq (Sing ('SchemaNumber cs)) where _ == _ = True
-instance Eq (Sing 'SchemaNull) where _ == _ = True
-instance Eq (Sing 'SchemaBoolean) where _ == _ = True
-instance Eq (Sing ('SchemaArray as s)) where _ == _ = True
-instance Eq (Sing ('SchemaObject cs)) where _ == _ = True
-instance Eq (Sing ('SchemaOptional s)) where _ == _ = True
-instance Eq (Sing ('SchemaUnion s)) where _ == _ = True
-
-instance SingKind Schema where
-  type Demote Schema = DemotedSchema
-  fromSing = \case
-    SSchemaText cs -> DSchemaText $ fromSing cs
-    SSchemaNumber cs -> DSchemaNumber $ fromSing cs
-    SSchemaBoolean -> DSchemaBoolean
-    SSchemaArray cs s -> DSchemaArray (fromSing cs) (fromSing s)
-    SSchemaOptional s -> DSchemaOptional $ fromSing s
-    SSchemaNull -> DSchemaNull
-    SSchemaObject cs -> DSchemaObject $ fromSing cs
-    SSchemaUnion ss -> DSchemaUnion $ fromSing ss
-  toSing = \case
-    DSchemaText cs -> case toSing cs of
-      SomeSing scs -> SomeSing $ SSchemaText scs
-    DSchemaNumber cs -> case toSing cs of
-      SomeSing scs -> SomeSing $ SSchemaNumber scs
-    DSchemaBoolean -> SomeSing $ SSchemaBoolean
-    DSchemaArray cs sch -> case (toSing cs, toSing sch) of
-      (SomeSing scs, SomeSing ssch) -> SomeSing $ SSchemaArray scs ssch
-    DSchemaOptional sch -> case toSing sch of
-      SomeSing ssch -> SomeSing $ SSchemaOptional ssch
-    DSchemaNull -> SomeSing SSchemaNull
-    DSchemaObject cs -> case toSing cs of
-      SomeSing scs -> SomeSing $ SSchemaObject scs
-    DSchemaUnion ss -> case toSing ss of
-      SomeSing sss -> SomeSing $ SSchemaUnion sss
+  CRepr ('SchemaText cs)  = TextConstraintT
+  CRepr ('SchemaNumber cs) = NumberConstraintT
+  CRepr ('SchemaObject fs) = (String, SchemaT)
+  CRepr ('SchemaArray ar s) = ArrayConstraintT
 
 data FieldRepr :: (Symbol, Schema) -> Type where
   FieldRepr
@@ -348,6 +115,19 @@ instance (Monad m, Serial m Scientific, SingI cs)
 
 instance Monad m => Serial m (JsonRepr 'SchemaNull) where
   series = cons0 ReprNull
+
+arraySeries
+  :: (Monad m, Serial m (JsonRepr s))
+  => [ArrayConstraintT] -> S.Series m (V.Vector (JsonRepr s))
+arraySeries cs = maybe (pure V.empty) arraySeries' $ verifyArrayConstraint cs
+
+arraySeries'
+  :: forall m s. (Monad m, Serial m (JsonRepr s))
+  => Maybe VerifiedArrayConstraint -> S.Series m (V.Vector (JsonRepr s))
+arraySeries' ml =
+  V.replicateM (maybe minRepeat f ml) (series :: S.Series m (JsonRepr s))
+  where
+    f (VAEq l) = fromIntegral l
 
 instance (Serial m (JsonRepr s), Serial m (V.Vector (JsonRepr s)), SingI cs)
   => Serial m (JsonRepr ('SchemaArray cs s)) where

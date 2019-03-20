@@ -1,12 +1,12 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE OverloadedLists   #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PolyKinds         #-}
+{-# LANGUAGE TypeApplications  #-}
 
 module LensSpec (spec, main) where
 
 import Control.Lens
-import Data.Proxy
 import Data.Schematic
 import Data.Vinyl
 import Test.Hspec
@@ -301,7 +301,6 @@ spec :: Spec
 spec = do
   let
     newFooVal = FieldRepr $ ReprArray [ReprNumber 15]
-    fooProxy  = Proxy @"foo"
   it "gets the field from an object" $ do
     fget @"foo" objectData `shouldBe` arrayField
   it "sets the object field" $ do

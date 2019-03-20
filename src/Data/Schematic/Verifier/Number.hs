@@ -1,29 +1,31 @@
 module Data.Schematic.Verifier.Number where
 
-import {-# SOURCE #-} Data.Schematic.Schema
+import Data.Schematic.Constraints
 import Data.Schematic.Verifier.Common
+import GHC.Natural
 
-toStrictNumber :: [DemotedNumberConstraint] -> [DemotedNumberConstraint]
+
+toStrictNumber :: [NumberConstraintT] -> [NumberConstraintT]
 toStrictNumber = map f
   where
-    f (DNLe x) = DNLt (x + 1)
-    f (DNGe x) = DNGt (x - 1)
-    f x        = x
+    f (NLe x) = NLt (x + 1)
+    f (NGe x) = NGt (x - 1)
+    f x       = x
 
 data VerifiedNumberConstraint
-  = VNEq Integer
-  | VNBounds (Maybe Integer) (Maybe Integer)
+  = VNEq Natural
+  | VNBounds (Maybe Natural) (Maybe Natural)
   deriving (Show)
 
 verifyNumberConstraints
-  :: [DemotedNumberConstraint]
+  :: [NumberConstraintT]
   -> Maybe VerifiedNumberConstraint
 verifyNumberConstraints cs' = do
   let
     cs = toStrictNumber cs'
-    mlt = simplifyDNLs [x | DNLt x <- cs]
-    mgt = simplifyDNGs [x | DNGt x <- cs]
-  meq <- verifyDNEq [x | DNEq x <- cs]
+    mlt = simplifyNLs [x | NLt x <- cs]
+    mgt = simplifyNGs [x | NGt x <- cs]
+  meq <- verifyNEq [x | NEq x <- cs]
   verifyEquations mgt meq mlt
   Just $
     case meq of
