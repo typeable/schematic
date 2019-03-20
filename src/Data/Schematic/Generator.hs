@@ -54,16 +54,3 @@ numberSeries' =
           h = fromMaybe maxHigh (fromIntegral <$> mh) - 1
       n <- generate $ \depth -> take depth [l .. h]
       pure $ fromIntegral n
-
--- arraySeries
---   :: (Monad m, Serial m (JsonRepr s))
---   => [ArrayConstraintT] -> Series m (V.Vector (JsonRepr s))
--- arraySeries cs = maybe (pure V.empty) arraySeries' $ verifyArrayConstraint cs
---
--- arraySeries'
---   :: forall m s. (Monad m, Serial m (JsonRepr s))
---   => Maybe VerifiedArrayConstraint -> Series m (V.Vector (JsonRepr s))
--- arraySeries' ml =
---   V.replicateM (maybe minRepeat f ml) (series :: Series m (JsonRepr s))
---   where
---     f (VAEq l) = fromIntegral l

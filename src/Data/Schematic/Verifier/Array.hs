@@ -1,12 +1,12 @@
 module Data.Schematic.Verifier.Array where
 
+import Data.Schematic.Compat
 import Data.Schematic.Constraints
 import Data.Schematic.Verifier.Common
-import GHC.Natural
 
 
 data VerifiedArrayConstraint =
-  VAEq Natural
+  VAEq DeNat
   deriving (Show)
 
 verifyArrayConstraint

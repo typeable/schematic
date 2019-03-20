@@ -27,7 +27,6 @@ import           Data.Vinyl hiding (Dict)
 import qualified Data.Vinyl.TypeLevel as V
 import           GHC.Exts
 import           GHC.Generics (Generic)
-import           GHC.Natural
 import           Prelude as P
 import           Test.SmallCheck.Series as S
 
@@ -42,10 +41,10 @@ singletons [d|
     | SchemaNull
     | SchemaOptional (Schema' s n)
     | SchemaUnion [Schema' s n]
-    deriving (Eq, Show, Ord, Generic)
+    deriving (Show, Generic)
   |]
 
-type SchemaT = Schema' Text Natural
+type SchemaT = Schema' Text (Demote Nat)
 type Schema = Schema' Symbol Nat
 
 -- type family CRepr (s :: Schema) :: Type where

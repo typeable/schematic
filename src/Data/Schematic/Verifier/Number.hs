@@ -1,8 +1,8 @@
 module Data.Schematic.Verifier.Number where
 
+import Data.Schematic.Compat
 import Data.Schematic.Constraints
 import Data.Schematic.Verifier.Common
-import GHC.Natural
 
 
 toStrictNumber :: [NumberConstraintT] -> [NumberConstraintT]
@@ -13,8 +13,8 @@ toStrictNumber = map f
     f x       = x
 
 data VerifiedNumberConstraint
-  = VNEq Natural
-  | VNBounds (Maybe Natural) (Maybe Natural)
+  = VNEq DeNat
+  | VNBounds (Maybe DeNat) (Maybe DeNat)
   deriving (Show)
 
 verifyNumberConstraints

@@ -2,10 +2,10 @@ module Data.Schematic.Verifier.Text where
 
 import Control.Monad
 import Data.Maybe
+import Data.Schematic.Compat
 import Data.Schematic.Constraints
 import Data.Schematic.Verifier.Common
 import Data.Text (Text, unpack)
-import GHC.Natural
 import Text.Regex.TDFA.Pattern
 import Text.Regex.TDFA.ReadRegex (parseRegex)
 
@@ -18,9 +18,9 @@ toStrictTextLength = map f
     f x       = x
 
 data VerifiedTextConstraint
-  = VTEq Natural
-  | VTBounds (Maybe Natural) (Maybe Natural)
-  | VTRegex Text Natural (Maybe Natural)
+  = VTEq DeNat
+  | VTBounds (Maybe DeNat) (Maybe DeNat)
+  | VTRegex Text DeNat (Maybe DeNat)
   | VTEnum [Text]
   deriving (Show)
 
@@ -34,7 +34,7 @@ verifyTextLengthConstraints cs' = do
     mgt = simplifyNGs [x | TGt x <- cs]
   meq <- verifyNEq [x | TEq x <- cs]
   verifyEquations mgt meq mlt
-  case all isNothing ([mgt, meq, mlt] :: [Maybe Natural]) of
+  case all isNothing ([mgt, meq, mlt] :: [Maybe DeNat]) of
     True -> Just Nothing
     _    ->
       Just $

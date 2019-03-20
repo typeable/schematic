@@ -5,6 +5,7 @@
 module Data.Schematic.Migration where
 
 import Data.Kind
+import Data.Schematic.Compat
 import Data.Schematic.DSL
 import Data.Schematic.Lens
 import Data.Schematic.Path
@@ -43,8 +44,8 @@ type family SchemaByKey (fs :: [(Symbol, Schema)]) (s :: Symbol) :: Schema where
   SchemaByKey ( '(a, s) ': tl) fn = SchemaByKey tl fn
 
 type family DeleteKey (acc :: [(Symbol, Schema)]) (fn :: Symbol) (fs :: [(Symbol, Schema)]) :: [(Symbol, Schema)] where
-  DeleteKey acc fn ('(fn, a) ': tl) = acc ++ tl
-  DeleteKey acc fn (fna ': tl) = acc ++ (fna ': tl)
+  DeleteKey acc fn ('(fn, a) ': tl) = acc :+++ tl
+  DeleteKey acc fn (fna ': tl) = acc :+++ (fna ': tl)
 
 type family UpdateKey
   (fn :: Symbol)
