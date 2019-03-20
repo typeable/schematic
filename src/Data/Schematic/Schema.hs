@@ -149,6 +149,9 @@ instance Show (JsonRepr ('SchemaText cs)) where
 instance Show (JsonRepr ('SchemaNumber cs)) where
   show (ReprNumber n) = "ReprNumber " P.++ show n
 
+instance Show (JsonRepr 'SchemaBoolean) where
+  show (ReprBoolean n) = "ReprBoolean " P.++ show n
+
 instance Show (JsonRepr 'SchemaNull) where show _ = "ReprNull"
 
 instance Show (JsonRepr s) => Show (JsonRepr ('SchemaArray acs s)) where
@@ -168,6 +171,10 @@ instance V.RecAll FieldRepr fs Show => Show (JsonRepr ('SchemaObject fs)) where
 instance Show (JsonRepr s) => Show (JsonRepr ('SchemaOptional s)) where
   show (ReprOptional s) = "ReprOptional " P.++ show s
 
+instance Show (Union JsonRepr (h ': tl))
+  => Show (JsonRepr ('SchemaUnion (h ': tl))) where
+  show (ReprUnion s) = "ReprUnion " P.++ show s
+
 instance Eq (Rec FieldRepr fs) => Eq (JsonRepr ('SchemaObject fs)) where
   ReprObject a == ReprObject b = a == b
 
@@ -176,6 +183,9 @@ instance Eq (JsonRepr ('SchemaText cs)) where
 
 instance Eq (JsonRepr ('SchemaNumber cs)) where
   ReprNumber a == ReprNumber b = a == b
+
+instance Eq (JsonRepr 'SchemaBoolean) where
+  ReprBoolean a == ReprBoolean b = a == b
 
 instance Eq (JsonRepr 'SchemaNull) where
   ReprNull == ReprNull = True
@@ -186,6 +196,10 @@ instance Eq (JsonRepr s) => Eq (JsonRepr ('SchemaArray as s)) where
 instance Eq (JsonRepr s) => Eq (JsonRepr ('SchemaOptional s)) where
   ReprOptional a == ReprOptional b = a == b
 
+instance Eq (Union JsonRepr (h ': tl))
+  => Eq (JsonRepr ('SchemaUnion (h ': tl))) where
+  ReprUnion a == ReprUnion b = a == b
+
 instance Ord (Rec FieldRepr fs) => Ord (JsonRepr ('SchemaObject fs)) where
   ReprObject a `compare` ReprObject b = a `compare` b
 
@@ -195,6 +209,9 @@ instance Ord (JsonRepr ('SchemaText cs)) where
 instance Ord (JsonRepr ('SchemaNumber cs)) where
   ReprNumber a `compare` ReprNumber b = a `compare` b
 
+instance Ord (JsonRepr 'SchemaBoolean) where
+  ReprBoolean a `compare` ReprBoolean b = a `compare` b
+
 instance Ord (JsonRepr 'SchemaNull) where
   compare _ _ = EQ
 
@@ -203,6 +220,10 @@ instance Ord (JsonRepr s) => Ord (JsonRepr ('SchemaArray as s)) where
 
 instance Ord (JsonRepr s) => Ord (JsonRepr ('SchemaOptional s)) where
   ReprOptional a `compare` ReprOptional b = a `compare` b
+
+instance Ord (Union JsonRepr (h ': tl))
+  => Ord (JsonRepr ('SchemaUnion (h ': tl))) where
+  ReprUnion a `compare` ReprUnion b = a `compare` b
 
 instance IsList (JsonRepr ('SchemaArray cs s)) where
   type Item (JsonRepr ('SchemaArray cs s)) = JsonRepr s
