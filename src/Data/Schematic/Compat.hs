@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
--- {-# LANGUAGE PolyKinds           #-}
 module Data.Schematic.Compat where
 
 import Data.Singletons

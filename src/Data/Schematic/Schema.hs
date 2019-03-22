@@ -100,7 +100,7 @@ type ReprObjectConstr fs =
   , Eq (Rec FieldRepr fs), Ord (Rec FieldRepr fs))
 #else
 type ReprObjectConstr fs =
-  (V.RecAll FieldRepr fs Show, Eq (Rec FieldRepr fs), Ord (Rec FieldRepr fs))
+  (V.RecAll FieldRepr fs Show, Eq (Rec FieldRepr fs))
 #endif
 type ReprUnionConstr tl =
   (Show (Union JsonRepr tl), Eq (Union JsonRepr tl), Ord (Union JsonRepr tl))
