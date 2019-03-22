@@ -12,7 +12,6 @@ import Data.Schematic.Path
 import Data.Schematic.Schema
 import Data.Scientific
 import Data.Singletons.Prelude
-import Data.Singletons.TypeLits
 import Data.Text as T
 import Data.Traversable
 import Data.Union
@@ -57,113 +56,53 @@ validateTextConstraint
   -> Text
   -> Sing (tcs :: TextConstraint)
   -> Validation ()
-validateTextConstraint (JSONPath path) t = \case
-  STEq n -> do
-    let
-      nlen      = withKnownNat n $ natVal n
-      predicate = nlen == (fromIntegral $ T.length t)
-      errMsg    = "length of " <> path <> " should be == " <> T.pack (show nlen)
-      warn      = vWarning $ mmSingleton path (pure errMsg)
-    unless predicate warn
-  STLt n -> do
-    let
-      nlen      = withKnownNat n $ natVal n
-      predicate = nlen > (fromIntegral $ T.length t)
-      errMsg    = "length of " <> path <> " should be < " <> T.pack (show nlen)
-      warn      = vWarning $ mmSingleton path (pure errMsg)
-    unless predicate warn
-  STLe n -> do
-    let
-      nlen      = withKnownNat n $ natVal n
-      predicate = nlen >= (fromIntegral $ T.length t)
-      errMsg    = "length of " <> path <> " should be <= " <> T.pack (show nlen)
-      warn      = vWarning $ mmSingleton path (pure errMsg)
-    unless predicate warn
-  STGt n -> do
-    let
-      nlen      = withKnownNat n $ natVal n
-      predicate = nlen < (fromIntegral $ T.length t)
-      errMsg    = "length of " <> path <> " should be > " <> T.pack (show nlen)
-      warn      = vWarning $ mmSingleton path (pure errMsg)
-    unless predicate warn
-  STGe n -> do
-    let
-      nlen      = withKnownNat n $ natVal n
-      predicate = nlen <= (fromIntegral $ T.length t)
-      errMsg    = "length of " <> path <> " should be >= " <> T.pack (show nlen)
-      warn      = vWarning $ mmSingleton path (pure errMsg)
-    unless predicate warn
-  STRegex r -> do
-    let
-      regex     = withKnownSymbol r $ fromSing r
-      predicate = matchTest (makeRegex (T.unpack regex) :: Regex) (T.unpack t)
-      errMsg    = path <> " must match " <> regex
-      warn      = vWarning $ mmSingleton path (pure errMsg)
-    unless predicate warn
-  STEnum ss -> do
-    let
-      matching :: Sing (s :: [Symbol]) -> Bool
-      matching SNil              = False
-      matching (SCons s@SSym fs) = T.pack (symbolVal s) == t || matching fs
-      errMsg = path <> " must be one of " <> T.pack (show (fromSing ss))
-      warn   = vWarning $ mmSingleton path (pure errMsg)
-    unless (matching ss) warn
+validateTextConstraint (JSONPath path) t s =
+  case (fromSing s :: TextConstraintT) of
+    TEq n -> checkLength n (==) "=="
+    TLt n -> checkLength n (<) "<"
+    TLe n -> checkLength n (<=) "<="
+    TGt n -> checkLength n (>) ">"
+    TGe n -> checkLength n (>=) ">="
+    TRegex r -> unless
+      (matchTest (makeRegex (T.unpack r) :: Regex) $ T.unpack t)
+      $ vWarning $ mmSingleton path $ pure $ path <> " must match " <> r
+    TEnum ss -> unless (t `P.elem` ss) $ vWarning $ mmSingleton path
+      $ pure $ path <> " must be one of " <> T.pack (show ss)
+  where
+    checkLength n f sf =
+      unless (f (fromIntegral $ T.length t) n)
+        $ vWarning $ mmSingleton path $ pure
+          $ "length of " <> path <> " should be " <> sf
+            <> " " <> T.pack (show n)
 
 validateNumberConstraint
   :: JSONPath
   -> Scientific
   -> Sing (tcs :: NumberConstraint)
   -> Validation ()
-validateNumberConstraint (JSONPath path) num = \case
-  SNEq n -> do
-    let
-      nlen      = withKnownNat n $ natVal n
-      predicate = fromIntegral nlen == num
-      errMsg    = path <> " should be == " <> T.pack (show nlen)
-      warn      = vWarning $ mmSingleton path (pure errMsg)
-    unless predicate warn
-  SNGt n -> do
-    let
-      nlen      = withKnownNat n $ natVal n
-      predicate = num > fromIntegral nlen
-      errMsg    = path <> " should be > " <> T.pack (show nlen)
-      warn      = vWarning $ mmSingleton path (pure errMsg)
-    unless predicate warn
-  SNGe n -> do
-    let
-      nlen      = withKnownNat n $ natVal n
-      predicate = num >= fromIntegral nlen
-      errMsg    = path <> " should be >= " <> T.pack (show nlen)
-      warn      = vWarning $ mmSingleton path (pure errMsg)
-    unless predicate warn
-  SNLt n -> do
-    let
-      nlen      = withKnownNat n $ natVal n
-      predicate = num < fromIntegral nlen
-      errMsg    = path <> " should be < " <> T.pack (show nlen)
-      warn      = vWarning $ mmSingleton path (pure errMsg)
-    unless predicate warn
-  SNLe n -> do
-    let
-      nlen      = withKnownNat n $ natVal n
-      predicate = num <= fromIntegral nlen
-      errMsg    = path <> " should be <= " <> T.pack (show nlen)
-      warn      = vWarning $ mmSingleton path (pure errMsg)
-    unless predicate warn
+validateNumberConstraint (JSONPath path) num s =
+  case (fromSing s :: NumberConstraintT) of
+    NEq n -> checkVal n (==) "=="
+    NLt n -> checkVal n (<) "<"
+    NLe n -> checkVal n (<=) "<="
+    NGt n -> checkVal n (>) ">"
+    NGe n -> checkVal n (>=) ">="
+  where
+    checkVal n f sf =
+      unless (f num $ fromIntegral n)
+        $ vWarning $ mmSingleton path $ pure
+          $ path <> " should be " <> sf <> " " <> T.pack (show n)
 
 validateArrayConstraint
   :: JSONPath
   -> V.Vector a
   -> Sing (tcs :: ArrayConstraint)
   -> Validation ()
-validateArrayConstraint (JSONPath path) v = \case
-  SAEq n -> do
-    let
-      nlen      = withKnownNat n $ natVal n
-      predicate = nlen == fromIntegral (V.length v)
-      errMsg    = "length of " <> path <> " should be == " <> T.pack (show nlen)
-      warn      = vWarning $ mmSingleton path (pure errMsg)
-    unless predicate warn
+validateArrayConstraint (JSONPath path) v s =
+  case (fromSing s :: ArrayConstraintT) of
+   AEq n -> unless (V.length v == fromIntegral n)
+    $ vWarning $ mmSingleton path $ pure
+      $ "length of " <> path <> " should be == " <> T.pack (show n)
 
 validateJsonRepr
   :: Sing schema
@@ -201,7 +140,7 @@ validateJsonRepr sschema dpath jr = case jr of
           process cs
       process acs
       for_ (V.indexed v) $ \(ix, jr') -> do
-        let newPath = dpath <> pure (DIx $ fromIntegral ix)
+        let newPath = dpath <> pure (Ix $ fromIntegral ix)
         validateJsonRepr s newPath jr'
   ReprOptional d -> case sschema of
     SSchemaOptional ss -> case d of
@@ -213,7 +152,7 @@ validateJsonRepr sschema dpath jr = case jr of
         go :: Rec FieldRepr (ts :: [(Symbol, Schema)] ) -> Validation ()
         go RNil                     = pure ()
         go (f@(FieldRepr d) :& ftl) = do
-          let newPath = dpath <> [DKey (knownFieldName f)]
+          let newPath = dpath <> [Key (knownFieldName f)]
           validateJsonRepr (knownFieldSchema f) newPath d
           go ftl
   ReprUnion _ -> pure () -- FIXME
@@ -248,7 +187,7 @@ validateJsonRepr sschema dpath jr = case jr of
 -- withUSubset (SCons s stl) r = r
 
 toUnion
-  :: USubset s' (s ': ss) (RImage s' (s ': ss))
+  :: (USubset s' (s ': ss) (RImage s' (s ': ss)), ReprUnionConstr ss)
   => Sing (s ': ss)
   -> Union JsonRepr s'
   -> JsonRepr ('SchemaUnion (s ': ss))
@@ -273,9 +212,9 @@ parseAndValidateJson v =
         Left em  -> ValidationError em
         Right () -> Valid jsonRepr
 
-parseAndValidateJsonBy
-  :: (FromJSON (JsonRepr schema), TopLevel schema, SingI schema)
-  => proxy schema
-  -> Value
-  -> ParseResult (JsonRepr schema)
-parseAndValidateJsonBy _ = parseAndValidateJson
+-- parseAndValidateJsonBy
+--   :: (FromJSON (JsonRepr schema), TopLevel schema, SingI schema)
+--   => proxy schema
+--   -> Value
+--   -> ParseResult (JsonRepr schema)
+-- parseAndValidateJsonBy _ = parseAndValidateJson

@@ -1,5 +1,7 @@
-{-# LANGUAGE CPP       #-}
-{-# LANGUAGE EmptyCase #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE EmptyCase           #-}
+-- {-# LANGUAGE PolyKinds           #-}
 {-# OPTIONS_GHC -fprint-explicit-kinds #-}
 
 module Data.Schematic.Schema where
@@ -8,27 +10,33 @@ import           Control.Applicative ((<|>))
 import           Control.Monad
 import           Data.Aeson as J
 import           Data.Aeson.Types as J
+import           Data.Char as C
 import           Data.HashMap.Strict as H
 import           Data.Kind
 import           Data.Maybe
+import           Data.Schematic.Compat
 import           Data.Schematic.Constraints
 import           Data.Schematic.Generator
 import           Data.Schematic.Generator.Regex
 import           Data.Schematic.Instances ()
 import           Data.Schematic.Verifier.Array
 import           Data.Scientific
-import           Data.Singletons.Prelude.List hiding (All, Union)
 import           Data.Singletons.TH
 import           Data.Singletons.TypeLits
 import           Data.Text as T
 import           Data.Union
 import           Data.Vector as V
 import           Data.Vinyl hiding (Dict)
-import qualified Data.Vinyl.TypeLevel as V
 import           GHC.Exts
 import           GHC.Generics (Generic)
 import           Prelude as P
 import           Test.SmallCheck.Series as S
+#if !MIN_VERSION_base(4,12,0)
+import qualified Data.Vinyl.TypeLevel as V
+#endif
+#if !MIN_VERSION_base(4,11,0)
+import           Data.Monoid ((<>))
+#endif
 
 
 singletons [d|
@@ -47,11 +55,9 @@ singletons [d|
 type SchemaT = Schema' Text (Demote Nat)
 type Schema = Schema' Symbol Nat
 
--- type family CRepr (s :: Schema) :: Type where
---   CRepr ('SchemaText cs)  = TextConstraintT
---   CRepr ('SchemaNumber cs) = NumberConstraintT
---   CRepr ('SchemaObject fs) = (String, SchemaT)
---   CRepr ('SchemaArray ar s) = ArrayConstraintT
+schemaTypeStr :: forall (sch :: Schema). SingI sch => String
+schemaTypeStr =
+  P.map C.toLower $ P.drop 6 $ P.head $ P.words $ show $ (demote' @sch)
 
 data FieldRepr :: (Symbol, Schema) -> Type where
   FieldRepr
@@ -78,9 +84,8 @@ knownFieldSchema
 knownFieldSchema _ = sing
 
 deriving instance Show (JsonRepr schema) => Show (FieldRepr '(name, schema))
-
-instance Eq (JsonRepr schema) => Eq (FieldRepr '(name, schema)) where
-  FieldRepr a == FieldRepr b = a == b
+deriving instance Eq (JsonRepr schema) => Eq (FieldRepr '(name, schema))
+deriving instance Ord (JsonRepr schema) => Ord (FieldRepr '(name, schema))
 
 instance
   ( KnownSymbol name
@@ -89,9 +94,16 @@ instance
   => Serial m (FieldRepr '(name, schema)) where
   series = FieldRepr <$> series
 
-type family USubsets (u :: [k]) :: Constraint where
-  USubsets '[] = ()
-  USubsets (h ': tl) = (USubset tl (h ': tl) (V.RImage tl (h ': tl)), USubsets tl)
+#if MIN_VERSION_base(4,12,0)
+type ReprObjectConstr fs =
+  ( RMap fs, RecordToList fs, ReifyConstraint Show FieldRepr fs
+  , Eq (Rec FieldRepr fs), Ord (Rec FieldRepr fs))
+#else
+type ReprObjectConstr fs =
+  (V.RecAll FieldRepr fs Show, Eq (Rec FieldRepr fs), Ord (Rec FieldRepr fs))
+#endif
+type ReprUnionConstr tl =
+  (Show (Union JsonRepr tl), Eq (Union JsonRepr tl), Ord (Union JsonRepr tl))
 
 data JsonRepr :: Schema -> Type where
   ReprText :: Text -> JsonRepr ('SchemaText cs)
@@ -99,9 +111,45 @@ data JsonRepr :: Schema -> Type where
   ReprBoolean :: Bool -> JsonRepr 'SchemaBoolean
   ReprNull :: JsonRepr 'SchemaNull
   ReprArray :: V.Vector (JsonRepr s) -> JsonRepr ('SchemaArray cs s)
-  ReprObject :: Rec FieldRepr fs -> JsonRepr ('SchemaObject fs)
   ReprOptional :: Maybe (JsonRepr s) -> JsonRepr ('SchemaOptional s)
-  ReprUnion :: Union JsonRepr (h ': tl) -> JsonRepr ('SchemaUnion (h ': tl))
+  ReprUnion :: ReprUnionConstr tl
+    => Union JsonRepr (h ': tl) -> JsonRepr ('SchemaUnion (h ': tl))
+  ReprObject :: ReprObjectConstr fs
+    => Rec FieldRepr fs -> JsonRepr ('SchemaObject fs)
+
+deriving instance Show (JsonRepr sch)
+deriving instance Eq (JsonRepr sch)
+
+-- due to issue https://gitlab.haskell.org/ghc/ghc/issues/8128
+#if MIN_VERSION_base(4,12,0)
+deriving instance Ord (JsonRepr sch)
+
+#else
+instance Ord (Rec FieldRepr fs) => Ord (JsonRepr ('SchemaObject fs)) where
+  ReprObject a `compare` ReprObject b = a `compare` b
+
+instance Ord (JsonRepr ('SchemaText cs)) where
+  ReprText a `compare` ReprText b = a `compare` b
+
+instance Ord (JsonRepr ('SchemaNumber cs)) where
+  ReprNumber a `compare` ReprNumber b = a `compare` b
+
+instance Ord (JsonRepr 'SchemaBoolean) where
+  ReprBoolean a `compare` ReprBoolean b = a `compare` b
+
+instance Ord (JsonRepr 'SchemaNull) where
+  compare _ _ = EQ
+
+instance Ord (JsonRepr s) => Ord (JsonRepr ('SchemaArray as s)) where
+  ReprArray a `compare` ReprArray b = a `compare` b
+
+instance Ord (JsonRepr s) => Ord (JsonRepr ('SchemaOptional s)) where
+  ReprOptional a `compare` ReprOptional b = a `compare` b
+
+instance Ord (Union JsonRepr (h ': tl))
+  => Ord (JsonRepr ('SchemaUnion (h ': tl))) where
+  ReprUnion a `compare` ReprUnion b = a `compare` b
+#endif
 
 instance (Monad m, Serial m Text, SingI cs)
   => Serial m (JsonRepr ('SchemaText cs)) where
@@ -137,92 +185,10 @@ instance (Serial m (JsonRepr s))
   => Serial m (JsonRepr ('SchemaOptional s)) where
   series = cons1 ReprOptional
 
-instance (Monad m, Serial m (Rec FieldRepr fs))
+instance
+  ( Monad m, Serial m (Rec FieldRepr fs), ReprObjectConstr fs)
   => Serial m (JsonRepr ('SchemaObject fs)) where
   series = cons1 ReprObject
-
--- | Move to the union package
-instance Show (JsonRepr ('SchemaText cs)) where
-  show (ReprText t) = "ReprText " P.++ show t
-
-instance Show (JsonRepr ('SchemaNumber cs)) where
-  show (ReprNumber n) = "ReprNumber " P.++ show n
-
-instance Show (JsonRepr 'SchemaBoolean) where
-  show (ReprBoolean n) = "ReprBoolean " P.++ show n
-
-instance Show (JsonRepr 'SchemaNull) where show _ = "ReprNull"
-
-instance Show (JsonRepr s) => Show (JsonRepr ('SchemaArray acs s)) where
-  show (ReprArray v) = "ReprArray " P.++ show v
-
-#if MIN_VERSION_base(4,12,0)
-instance
-  ( V.RecAll FieldRepr fs Show, RMap fs, ReifyConstraint Show FieldRepr fs
-  , RecordToList fs )
-  => Show (JsonRepr ('SchemaObject fs)) where
-  show (ReprObject fs) = "ReprObject " P.++ show fs
-#else
-instance V.RecAll FieldRepr fs Show => Show (JsonRepr ('SchemaObject fs)) where
-  show (ReprObject fs) = "ReprObject " P.++ show fs
-#endif
-
-instance Show (JsonRepr s) => Show (JsonRepr ('SchemaOptional s)) where
-  show (ReprOptional s) = "ReprOptional " P.++ show s
-
-instance Show (Union JsonRepr (h ': tl))
-  => Show (JsonRepr ('SchemaUnion (h ': tl))) where
-  show (ReprUnion s) = "ReprUnion " P.++ show s
-
-instance Eq (Rec FieldRepr fs) => Eq (JsonRepr ('SchemaObject fs)) where
-  ReprObject a == ReprObject b = a == b
-
-instance Eq (JsonRepr ('SchemaText cs)) where
-  ReprText a == ReprText b = a == b
-
-instance Eq (JsonRepr ('SchemaNumber cs)) where
-  ReprNumber a == ReprNumber b = a == b
-
-instance Eq (JsonRepr 'SchemaBoolean) where
-  ReprBoolean a == ReprBoolean b = a == b
-
-instance Eq (JsonRepr 'SchemaNull) where
-  ReprNull == ReprNull = True
-
-instance Eq (JsonRepr s) => Eq (JsonRepr ('SchemaArray as s)) where
-  ReprArray a == ReprArray b = a == b
-
-instance Eq (JsonRepr s) => Eq (JsonRepr ('SchemaOptional s)) where
-  ReprOptional a == ReprOptional b = a == b
-
-instance Eq (Union JsonRepr (h ': tl))
-  => Eq (JsonRepr ('SchemaUnion (h ': tl))) where
-  ReprUnion a == ReprUnion b = a == b
-
-instance Ord (Rec FieldRepr fs) => Ord (JsonRepr ('SchemaObject fs)) where
-  ReprObject a `compare` ReprObject b = a `compare` b
-
-instance Ord (JsonRepr ('SchemaText cs)) where
-  ReprText a `compare` ReprText b = a `compare` b
-
-instance Ord (JsonRepr ('SchemaNumber cs)) where
-  ReprNumber a `compare` ReprNumber b = a `compare` b
-
-instance Ord (JsonRepr 'SchemaBoolean) where
-  ReprBoolean a `compare` ReprBoolean b = a `compare` b
-
-instance Ord (JsonRepr 'SchemaNull) where
-  compare _ _ = EQ
-
-instance Ord (JsonRepr s) => Ord (JsonRepr ('SchemaArray as s)) where
-  ReprArray a `compare` ReprArray b = a `compare` b
-
-instance Ord (JsonRepr s) => Ord (JsonRepr ('SchemaOptional s)) where
-  ReprOptional a `compare` ReprOptional b = a `compare` b
-
-instance Ord (Union JsonRepr (h ': tl))
-  => Ord (JsonRepr ('SchemaUnion (h ': tl))) where
-  ReprUnion a `compare` ReprUnion b = a `compare` b
 
 instance IsList (JsonRepr ('SchemaArray cs s)) where
   type Item (JsonRepr ('SchemaArray cs s)) = JsonRepr s
@@ -241,7 +207,7 @@ instance IsString (JsonRepr ('SchemaText cs)) where
   fromString = ReprText . fromString
 
 fromOptional
-  :: SingI s
+  :: (SingI s, FromJSON (JsonRepr s))
   => Sing ('SchemaOptional s)
   -> J.Value
   -> Parser (Maybe (JsonRepr s))
@@ -257,7 +223,8 @@ parseUnion _ val = parseJSON val
 instance FromJSON (Union JsonRepr '[]) where
   parseJSON = fail "empty union"
 
-instance (SingI a, FromJSON (Union JsonRepr as)) => FromJSON (Union JsonRepr (a ': as)) where
+instance (SingI a, FromJSON (JsonRepr a), FromJSON (Union JsonRepr as))
+  => FromJSON (Union JsonRepr (a ': as)) where
   parseJSON val = (This <$> parseJSON val)
     <|> (That <$> (parseJSON val :: Parser (Union JsonRepr as)))
 
@@ -265,49 +232,57 @@ instance ToJSON (Union JsonRepr as) where
   toJSON (This fa) = toJSON fa
   toJSON (That u)  = toJSON u
 
-instance SingI schema => J.FromJSON (JsonRepr schema) where
-  parseJSON value = case sing :: Sing schema of
-    SSchemaText _          -> withText "String" (pure . ReprText) value
-    SSchemaNumber _        -> withScientific "Number" (pure . ReprNumber) value
-    SSchemaBoolean         -> ReprBoolean <$> parseJSON value
-    SSchemaNull            -> case value of
-      J.Null -> pure ReprNull
-      _      -> typeMismatch "Null" value
-    so@(SSchemaOptional s) -> withSingI s $ ReprOptional <$> fromOptional so value
-    SSchemaArray sa sb     -> withSingI sa $ withSingI sb
-      $ withArray "Array" (fmap ReprArray . traverse parseJSON) value
-    SSchemaObject fs       -> do
-      let
-        demoteFields :: SList s -> H.HashMap Text J.Value -> Parser (Rec FieldRepr s)
-        demoteFields SNil _ = pure RNil
-        demoteFields (SCons (STuple2 (n :: Sing fn) s) tl) h = withKnownSymbol n $ do
-          let fieldName = T.pack $ symbolVal (Proxy @fn)
-          fieldRepr <- case s of
-            SSchemaText so -> case H.lookup fieldName h of
-              Just v  -> withSingI so $ FieldRepr <$> parseJSON v
-              Nothing -> fail $ "No text field: " P.++ show fieldName
-            SSchemaNumber so -> case H.lookup fieldName h of
-              Just v  -> withSingI so $ FieldRepr <$> parseJSON v
-              Nothing -> fail $ "No number field: " P.++ show fieldName
-            SSchemaBoolean -> case H.lookup fieldName h of
-              Just v  -> FieldRepr <$> parseJSON v
-              Nothing -> fail $ "No boolean field: " P.++ show fieldName
-            SSchemaNull -> case H.lookup fieldName h of
-              Just v  -> FieldRepr <$> parseJSON v
-              Nothing -> fail $ "No null field: " P.++ show fieldName
-            SSchemaArray sa sb -> case H.lookup fieldName h of
-              Just v  -> withSingI sa $ withSingI sb $ FieldRepr <$> parseJSON v
-              Nothing -> fail $ "No array field: " P.++ show fieldName
-            SSchemaObject so -> case H.lookup fieldName h of
-              Just v  -> withSingI so $ FieldRepr <$> parseJSON v
-              Nothing -> fail $ "No object field" P.++ show fieldName
-            SSchemaOptional so -> case H.lookup fieldName h of
-              Just v -> withSingI so $ FieldRepr <$> parseJSON v
-              Nothing -> withSingI so $ pure $ FieldRepr $ ReprOptional Nothing
-            SSchemaUnion ss -> withSingI ss $ FieldRepr <$> parseUnion ss value
-          (fieldRepr :&) <$> demoteFields tl h
-      ReprObject <$> withObject "Object" (demoteFields fs) value
-    SSchemaUnion ss -> parseUnion ss value
+instance J.FromJSON (JsonRepr ('SchemaText cs)) where
+  parseJSON = withText "String" (pure . ReprText)
+
+instance J.FromJSON (JsonRepr ('SchemaNumber cs)) where
+  parseJSON = withScientific "Number" (pure . ReprNumber)
+
+instance J.FromJSON (JsonRepr 'SchemaBoolean) where
+  parseJSON = fmap ReprBoolean . parseJSON
+
+instance J.FromJSON (JsonRepr 'SchemaNull) where
+  parseJSON value = case value of
+    J.Null -> pure ReprNull
+    _      -> typeMismatch "Null" value
+
+instance
+  J.FromJSON (JsonRepr s) =>  J.FromJSON (JsonRepr ('SchemaOptional s)) where
+  parseJSON = fmap ReprOptional . parseJSON
+
+instance
+  J.FromJSON (JsonRepr sb) => J.FromJSON (JsonRepr ('SchemaArray sa sb)) where
+  parseJSON = withArray "Array" (fmap ReprArray . traverse parseJSON)
+
+instance
+  ( SingI x, ReprUnionConstr xs
+  , FromJSON (Union JsonRepr xs), FromJSON (JsonRepr x) )
+  => J.FromJSON (JsonRepr ('SchemaUnion (x ': xs))) where
+  parseJSON = fmap ReprUnion . parseJSON
+
+class FromHashMap (xs :: [(Symbol, Schema)]) where
+  fromHashMap :: H.HashMap Text J.Value -> Parser (Rec FieldRepr xs)
+
+instance FromHashMap '[] where
+  fromHashMap _ = pure RNil
+
+instance
+  (KnownSymbol n, SingI s, FromHashMap xs, FromJSON (JsonRepr s))
+  => FromHashMap ( '(n,s) ': xs) where
+  fromHashMap h = do
+    fr <- case H.lookup fn h of
+      Nothing -> case (sing :: Sing s) of
+        SSchemaOptional _ -> pure $ FieldRepr @s $ ReprOptional Nothing
+        _ -> fail $ "No " <> schemaTypeStr @s <> " field: " <> show fn
+      Just v -> FieldRepr @s <$> parseJSON v
+    frs <- fromHashMap @xs h
+    pure $ fr :& frs
+    where
+      fn = demote' @n
+
+instance (FromHashMap rs, ReprObjectConstr rs)
+  => J.FromJSON (JsonRepr ('SchemaObject rs)) where
+  parseJSON = fmap ReprObject . withObject "Object" fromHashMap
 
 instance J.ToJSON (JsonRepr a) where
   toJSON ReprNull         = J.Null
@@ -330,7 +305,7 @@ instance J.ToJSON (JsonRepr a) where
         fr@(FieldRepr _) :& tl -> (extract fr) : fold tl
   toJSON (ReprUnion u) = toJSON u
 
-class FalseConstraint a
+-- class FalseConstraint a
 
 type family TopLevel (schema :: Schema) :: Constraint where
   TopLevel ('SchemaArray acs s) = ()

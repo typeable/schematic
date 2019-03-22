@@ -1,7 +1,7 @@
-{-# LANGUAGE UndecidableSuperClasses #-}
+{-# LANGUAGE AllowAmbiguousTypes        #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE InstanceSigs               #-}
+{-# LANGUAGE UndecidableSuperClasses    #-}
 
 module Data.Schematic.Lens
   ( FIndex
@@ -33,7 +33,7 @@ import Data.Vector as V
 import Data.Vinyl
 import Data.Vinyl.Functor
 import Data.Vinyl.TypeLevel (Nat(..))
-import GHC.TypeLits (Symbol, KnownSymbol)
+import GHC.TypeLits (KnownSymbol, Symbol)
 
 
 -- | A partial relation that gives the index of a value in a list.
@@ -176,7 +176,7 @@ arrayRepr
 arrayRepr = iso (\(FieldRepr (ReprArray a)) -> a) (FieldRepr . ReprArray)
 
 objectRepr
-  :: (KnownSymbol fn, SingI fields)
+  :: (KnownSymbol fn, SingI fields, ReprObjectConstr fields)
   => Iso' (FieldRepr '(fn, ('SchemaObject fields))) (Rec FieldRepr fields)
 objectRepr = iso (\(FieldRepr (ReprObject o)) -> o) (FieldRepr . ReprObject)
 
@@ -185,13 +185,14 @@ optionalRepr
   => Iso' (FieldRepr '(fn, ('SchemaOptional schema))) (Maybe (JsonRepr schema))
 optionalRepr = iso (\(FieldRepr (ReprOptional r)) -> r) (FieldRepr . ReprOptional)
 
-obj :: Iso' (JsonRepr ('SchemaObject fields)) (Rec FieldRepr fields)
+obj :: ReprObjectConstr fields => Iso' (JsonRepr ('SchemaObject fields)) (Rec FieldRepr fields)
 obj = iso (\(ReprObject r) -> r) ReprObject
 
 arr :: Iso' (JsonRepr ('SchemaArray cs schema)) (V.Vector (JsonRepr schema))
 arr = iso (\(ReprArray r) -> r) ReprArray
 
-uni :: Iso' (JsonRepr ('SchemaUnion (h ': tl))) (Union JsonRepr (h ': tl))
+uni :: ReprUnionConstr tl
+  => Iso' (JsonRepr ('SchemaUnion (h ': tl))) (Union JsonRepr (h ': tl))
 uni = iso (\(ReprUnion u) -> u) ReprUnion
 
 txt :: Iso' (JsonRepr ('SchemaText cs)) Text

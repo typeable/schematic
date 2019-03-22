@@ -4,6 +4,7 @@
 
 module Data.Schematic.Migration where
 
+import Data.Aeson
 import Data.Kind
 import Data.Schematic.Compat
 import Data.Schematic.DSL
@@ -149,33 +150,29 @@ data instance Sing (v :: Versioned) where
 type DataMigration s m h = Tagged s (JsonRepr h -> m (JsonRepr s))
 
 data MList :: (Type -> Type) -> [Schema] -> Type where
-  MNil :: (Monad m, SingI s, TopLevel s) => MList m '[s]
+  MNil :: (Monad m, SingI s, TopLevel s, FromJSON (JsonRepr s)) => MList m '[s]
   (:&&)
-    :: (TopLevel s, SingI s)
+    :: (TopLevel s, SingI s, FromJSON (JsonRepr h), FromJSON (JsonRepr s))
     => DataMigration s m h
     -> MList m (h ': tl)
     -> MList m (s ': h ': tl)
 
 infixr 7 :&&
 
-#if MIN_VERSION_base(4,12,0)
 migrateObject
-  :: forall m fs fh. (FSubset fs fs (FImage fs fs), Monad m, RMap fh, RMap fs)
+  :: forall m fs fh
+  . ( FSubset fs fs (FImage fs fs), Monad m
+    , ReprObjectConstr fh, ReprObjectConstr fs )
   => (Rec (Tagged fs :. FieldRepr) fh -> m (Rec (Tagged fs :. FieldRepr) fs))
-  -> Tagged ('SchemaObject fs) (JsonRepr ('SchemaObject fh) -> m (JsonRepr ('SchemaObject fs)))
-#else
-migrateObject
-  :: forall m fs fh. (FSubset fs fs (FImage fs fs), Monad m)
-  => (Rec (Tagged fs :. FieldRepr) fh -> m (Rec (Tagged fs :. FieldRepr) fs))
-  -> Tagged ('SchemaObject fs) (JsonRepr ('SchemaObject fh) -> m (JsonRepr ('SchemaObject fs)))
-#endif
+  -> Tagged ('SchemaObject fs)
+    (JsonRepr ('SchemaObject fh) -> m (JsonRepr ('SchemaObject fs)))
 migrateObject f = Tagged $ \(ReprObject r) -> do
   res <- f $ rmap (Compose . Tagged) r
   pure $ withRepr @('SchemaObject fs) res
 
 shrinkObject
   :: forall rs ss m
-  . ( Monad m, FSubset rs ss (FImage rs ss) )
+  . ( Monad m, FSubset rs ss (FImage rs ss), ReprObjectConstr rs )
   => Tagged
     ('SchemaObject rs)
     (JsonRepr ('SchemaObject ss) -> m (JsonRepr ('SchemaObject rs)))
