@@ -10,6 +10,7 @@ import Data.Aeson.Types
 import Data.Coerce
 import Data.Foldable
 import Data.Functor.Identity
+import Data.Kind
 import Data.Monoid
 import Data.Schematic.Path
 import Data.Schematic.Schema
@@ -241,8 +242,21 @@ instance SingI (SchemaObject s) => Validatable (SchemaObject s) where
             $ lookaheadJsonRepr newPath d
           go ftl
 
-instance SingI (SchemaUnion s) => Validatable (SchemaUnion s) where
-  validateJsonRepr dpath (ReprUnion u) = pure ()
+instance
+  (SingI (SchemaUnion (s ': tl)))
+  => Validatable (SchemaUnion (s ': tl)) where
+  validateJsonRepr dpath (ReprUnion u) = do
+    let
+      v :: forall s. Sing s -> JsonRepr s -> Const (Validation ()) s
+      v s j = withSingI s $ Const $ lookaheadJsonRepr dpath j
+      peel :: Union (Const (Validation ())) ts -> Validation ()
+      peel (That u) = peel u
+      peel (This v) = getConst v
+      umap' :: (forall a . Sing a -> f a -> g a) -> SList as -> Union f as -> Union g as
+      umap' f (SCons s' stl') = \case
+        This a -> This (f s' a)
+        That u -> That (umap' f stl' u)
+    peel (umap' v sing u)
 
   -- ReprUnion u -> do
   --   let
