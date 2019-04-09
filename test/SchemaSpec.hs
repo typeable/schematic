@@ -1,6 +1,5 @@
 {-# OPTIONS_GHC -fprint-potential-instances #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
-
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE GADTs               #-}
@@ -15,17 +14,12 @@ module SchemaSpec (spec, main) where
 import Control.Lens
 import Data.Aeson
 import Data.ByteString.Lazy
--- import Data.Functor.Identity
 import Data.Proxy
 import Data.Schematic
--- import Data.Schematic.Generator
--- import Data.Singletons
--- import Data.Tagged
 import Data.Vinyl
 import Test.Hspec
 import Test.Hspec.SmallCheck
 import Test.SmallCheck as SC
--- import Test.SmallCheck.Drivers as SC
 import Test.SmallCheck.Series as SC
 
 
