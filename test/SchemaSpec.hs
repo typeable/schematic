@@ -14,6 +14,7 @@ module SchemaSpec (spec, main) where
 import Control.Lens
 import Data.Aeson
 import Data.ByteString.Lazy
+import Data.Monoid ((<>))
 import Data.Proxy
 import Data.Schematic
 import Data.Vinyl
@@ -30,6 +31,12 @@ type SchemaExample = 'SchemaObject
 type SchemaExample2 = 'SchemaObject
   '[ '("foo", 'SchemaArray '[ 'AEq 2] ('SchemaText '[ 'TGt 10]))
    , '("bar", 'SchemaOptional ('SchemaText '[ 'TRegex "[0-9]+"]))]
+
+type SchemaExample3 = 'SchemaUnion '[SchemaExample]
+
+type SchemaExample4 = 'SchemaObject
+  '[ '("baz3", SchemaExample3)
+  ,  '("baz1", SchemaExample)]
 
 jsonExample :: JsonRepr SchemaExample
 jsonExample = withRepr @SchemaExample
@@ -79,6 +86,12 @@ schemaJsonSeries = series
 
 schemaJsonSeries2 :: Monad m => SC.Series m (JsonRepr SchemaExample2)
 schemaJsonSeries2 = series
+
+schemaJson3 :: ByteString
+schemaJson3 = schemaJson
+
+schemaJson4 :: ByteString
+schemaJson4 = "{\"baz1\": "<>schemaJson<>", \"baz3\": "<>schemaJson3<>"}"
 
 spec :: Spec
 spec = do
