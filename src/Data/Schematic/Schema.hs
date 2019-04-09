@@ -47,12 +47,6 @@ singletons [d|
 type SchemaT = Schema' Text (Demote Nat)
 type Schema = Schema' Symbol Nat
 
--- type family CRepr (s :: Schema) :: Type where
---   CRepr ('SchemaText cs)  = TextConstraintT
---   CRepr ('SchemaNumber cs) = NumberConstraintT
---   CRepr ('SchemaObject fs) = (String, SchemaT)
---   CRepr ('SchemaArray ar s) = ArrayConstraintT
-
 data FieldRepr :: (Symbol, Schema) -> Type where
   FieldRepr
     :: (SingI schema, KnownSymbol name)
