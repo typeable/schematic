@@ -6,7 +6,8 @@ import Data.Aeson
 import Data.Aeson.Types
 import Data.Foldable
 import Data.Functor.Identity
-import Data.Monoid
+import Data.Monoid ((<>))
+import Data.Schematic.Constraints
 import Data.Schematic.Path
 import Data.Schematic.Schema
 import Data.Scientific
@@ -38,7 +39,7 @@ instance (TopLevel a, SingI a, FromJSON (JsonRepr a))
 
 isValid :: ParseResult a -> Bool
 isValid (Valid _) = True
-isValid _ = False
+isValid _         = False
 
 isDecodingError :: ParseResult a -> Bool
 isDecodingError (DecodingError _) = True

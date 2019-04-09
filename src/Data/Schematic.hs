@@ -7,6 +7,8 @@ module Data.Schematic
   , module Data.Schematic.Lens
   , module Data.Schematic.Migration
   , module Data.Schematic.Schema
+  , module Data.Schematic.Constraints
+  , module Data.Schematic.Compat
   , decodeAndValidateJson
   , parseAndValidateJson
   , parseAndValidateJsonBy
@@ -27,6 +29,8 @@ import Data.Aeson as J
 import Data.Aeson.Types as J
 import Data.ByteString.Lazy as BL
 import Data.Functor.Identity as F
+import Data.Schematic.Compat
+import Data.Schematic.Constraints
 import Data.Schematic.DSL
 import Data.Schematic.Helpers
 import Data.Schematic.JsonSchema

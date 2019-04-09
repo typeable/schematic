@@ -2,37 +2,39 @@ module Data.Schematic.Verifier.Text where
 
 import Control.Monad
 import Data.Maybe
-import {-# SOURCE #-} Data.Schematic.Schema
+import Data.Schematic.Compat
+import Data.Schematic.Constraints
 import Data.Schematic.Verifier.Common
 import Data.Text (Text, unpack)
 import Text.Regex.TDFA.Pattern
 import Text.Regex.TDFA.ReadRegex (parseRegex)
 
-toStrictTextLength :: [DemotedTextConstraint] -> [DemotedTextConstraint]
+
+toStrictTextLength :: [TextConstraintT] -> [TextConstraintT]
 toStrictTextLength = map f
   where
-    f (DTLe x) = DTLt (x + 1)
-    f (DTGe x) = DTGt (x - 1)
-    f x        = x
+    f (TLe x) = TLt (x + 1)
+    f (TGe x) = TGt (x - 1)
+    f x       = x
 
 data VerifiedTextConstraint
-  = VTEq Integer
-  | VTBounds (Maybe Integer) (Maybe Integer)
-  | VTRegex Text Integer (Maybe Integer)
+  = VTEq DeNat
+  | VTBounds (Maybe DeNat) (Maybe DeNat)
+  | VTRegex Text DeNat (Maybe DeNat)
   | VTEnum [Text]
   deriving (Show)
 
 verifyTextLengthConstraints
-  :: [DemotedTextConstraint]
+  :: [TextConstraintT]
   -> Maybe (Maybe VerifiedTextConstraint)
 verifyTextLengthConstraints cs' = do
   let
     cs = toStrictTextLength cs'
-    mlt = simplifyDNLs [x | DTLt x <- cs]
-    mgt = simplifyDNGs [x | DTGt x <- cs]
-  meq <- verifyDNEq [x | DTEq x <- cs]
+    mlt = simplifyNLs [x | TLt x <- cs]
+    mgt = simplifyNGs [x | TGt x <- cs]
+  meq <- verifyNEq [x | TEq x <- cs]
   verifyEquations mgt meq mlt
-  case all isNothing ([mgt, meq, mlt] :: [Maybe Integer]) of
+  case all isNothing ([mgt, meq, mlt] :: [Maybe DeNat]) of
     True -> Just Nothing
     _    ->
       Just $
@@ -86,10 +88,10 @@ maxRegexLength p =
     _                  -> Just 0
 
 verifyTextRegexConstraint
-  :: [DemotedTextConstraint]
+  :: [TextConstraintT]
   -> Maybe (Maybe VerifiedTextConstraint)
 verifyTextRegexConstraint cs = do
-  let regexps = [x | DTRegex x <- cs]
+  let regexps = [x | TRegex x <- cs]
   case regexps of
     []  -> Just Nothing
     [x] -> do
@@ -98,23 +100,23 @@ verifyTextRegexConstraint cs = do
     _   -> Nothing
 
 verifyTextEnumConstraint
-  :: [DemotedTextConstraint]
+  :: [TextConstraintT]
   -> Maybe (Maybe VerifiedTextConstraint)
 verifyTextEnumConstraint cs = do
-  let enums = concat [x | DTEnum x <- cs]
+  let enums = concat [x | TEnum x <- cs]
   case enums of
     [] -> Just Nothing
     x  -> Just $ Just $ VTEnum x
 
 verifyTextConstraints
-  :: [DemotedTextConstraint]
+  :: [TextConstraintT]
   -> Maybe [VerifiedTextConstraint]
 verifyTextConstraints cs = do
   regexp <- verifyTextRegexConstraint cs
   void $
     case regexp of
       Just (VTRegex _ l mh) ->
-        verifyTextLengthConstraints (DTGe l : cs ++ maybeToList (DTLe <$> mh))
+        verifyTextLengthConstraints (TGe l : cs ++ maybeToList (TLe <$> mh))
       _                     -> pure Nothing
   lengths <- verifyTextLengthConstraints cs
   enums <- verifyTextEnumConstraint cs

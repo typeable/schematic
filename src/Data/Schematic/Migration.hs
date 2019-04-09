@@ -1,10 +1,10 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
 module Data.Schematic.Migration where
 
 import Data.Kind
+import Data.Schematic.Compat
 import Data.Schematic.DSL
 import Data.Schematic.Lens
 import Data.Schematic.Path
@@ -43,8 +43,8 @@ type family SchemaByKey (fs :: [(Symbol, Schema)]) (s :: Symbol) :: Schema where
   SchemaByKey ( '(a, s) ': tl) fn = SchemaByKey tl fn
 
 type family DeleteKey (acc :: [(Symbol, Schema)]) (fn :: Symbol) (fs :: [(Symbol, Schema)]) :: [(Symbol, Schema)] where
-  DeleteKey acc fn ('(fn, a) ': tl) = acc ++ tl
-  DeleteKey acc fn (fna ': tl) = acc ++ (fna ': tl)
+  DeleteKey acc fn ('(fn, a) ': tl) = acc :++ tl
+  DeleteKey acc fn (fna ': tl) = acc :++ (fna ': tl)
 
 type family UpdateKey
   (fn :: Symbol)
@@ -157,17 +157,12 @@ data MList :: (Type -> Type) -> [Schema] -> Type where
 
 infixr 7 :&&
 
-#if MIN_VERSION_base(4,12,0)
 migrateObject
-  :: forall m fs fh. (FSubset fs fs (FImage fs fs), Monad m, RMap fh, RMap fs)
+  :: forall m fs fh
+    . (FSubset fs fs (FImage fs fs), Monad m, RMapCompat fh, RMapCompat fs)
   => (Rec (Tagged fs :. FieldRepr) fh -> m (Rec (Tagged fs :. FieldRepr) fs))
-  -> Tagged ('SchemaObject fs) (JsonRepr ('SchemaObject fh) -> m (JsonRepr ('SchemaObject fs)))
-#else
-migrateObject
-  :: forall m fs fh. (FSubset fs fs (FImage fs fs), Monad m)
-  => (Rec (Tagged fs :. FieldRepr) fh -> m (Rec (Tagged fs :. FieldRepr) fs))
-  -> Tagged ('SchemaObject fs) (JsonRepr ('SchemaObject fh) -> m (JsonRepr ('SchemaObject fs)))
-#endif
+  -> Tagged ('SchemaObject fs) (JsonRepr ('SchemaObject fh)
+  -> m (JsonRepr ('SchemaObject fs)))
 migrateObject f = Tagged $ \(ReprObject r) -> do
   res <- f $ rmap (Compose . Tagged) r
   pure $ withRepr @('SchemaObject fs) res
