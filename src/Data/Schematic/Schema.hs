@@ -74,7 +74,7 @@ knownFieldName
   .  KnownSymbol fieldName
   => proxy '(fieldName, schema)
   -> Text
-knownFieldName _ = T.pack $ symbolVal (Proxy @fieldName)
+knownFieldName _ = demote' @fieldName
 
 knownFieldSchema
   :: forall proxy fieldName schema
