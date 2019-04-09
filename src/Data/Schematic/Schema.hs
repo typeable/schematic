@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP       #-}
 {-# LANGUAGE EmptyCase #-}
 {-# OPTIONS_GHC -fprint-explicit-kinds #-}
 
@@ -11,6 +10,7 @@ import           Data.Aeson.Types as J
 import           Data.HashMap.Strict as H
 import           Data.Kind
 import           Data.Maybe
+import           Data.Schematic.Compat
 import           Data.Schematic.Constraints
 import           Data.Schematic.Generator
 import           Data.Schematic.Generator.Regex
@@ -156,16 +156,11 @@ instance Show (JsonRepr 'SchemaNull) where show _ = "ReprNull"
 instance Show (JsonRepr s) => Show (JsonRepr ('SchemaArray acs s)) where
   show (ReprArray v) = "ReprArray " P.++ show v
 
-#if MIN_VERSION_base(4,12,0)
 instance
-  ( V.RecAll FieldRepr fs Show, RMap fs, ReifyConstraint Show FieldRepr fs
-  , RecordToList fs )
+  ( V.RecAll FieldRepr fs Show, RMapCompat fs
+  , ReifyConstraintCompat Show FieldRepr fs, RecordToListCompat fs )
   => Show (JsonRepr ('SchemaObject fs)) where
   show (ReprObject fs) = "ReprObject " P.++ show fs
-#else
-instance V.RecAll FieldRepr fs Show => Show (JsonRepr ('SchemaObject fs)) where
-  show (ReprObject fs) = "ReprObject " P.++ show fs
-#endif
 
 instance Show (JsonRepr s) => Show (JsonRepr ('SchemaOptional s)) where
   show (ReprOptional s) = "ReprOptional " P.++ show s

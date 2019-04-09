@@ -7,7 +7,6 @@ import Data.Schematic.Generator.Regex
 import Data.Schematic.Verifier
 import Data.Scientific
 import Data.Text (Text, pack)
--- import qualified Data.Vector as V
 import Test.SmallCheck.Series
 
 

@@ -1,13 +1,10 @@
-{-# LANGUAGE CPP #-}
 module Data.Schematic.Path where
 
 import Data.Foldable as F
+import Data.Monoid ((<>))
 import Data.Singletons.Prelude
 import Data.Singletons.TypeLits
 import Data.Text as T
-#if !MIN_VERSION_base(4,11,0)
-import Data.Monoid ((<>))
-#endif
 
 
 data PathSegment = Key Symbol | Ix Nat

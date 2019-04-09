@@ -78,7 +78,6 @@ library
                      , regex-tdfa-text
                      , scientific
                      , singletons
-                     -- >= 2.4
                      , smallcheck
                      , tagged
                      , template-haskell

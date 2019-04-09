@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 module Data.Schematic.Validation where
 
 import Control.Monad
@@ -7,6 +6,7 @@ import Data.Aeson
 import Data.Aeson.Types
 import Data.Foldable
 import Data.Functor.Identity
+import Data.Monoid ((<>))
 import Data.Schematic.Constraints
 import Data.Schematic.Path
 import Data.Schematic.Schema
@@ -21,9 +21,6 @@ import Data.Vinyl
 import Data.Vinyl.TypeLevel
 import Prelude as P
 import Text.Regex.TDFA
-#if !MIN_VERSION_base(4,11,0)
-import Data.Monoid ((<>))
-#endif
 
 
 type Validation a = ValidationT ErrorMap Identity a
