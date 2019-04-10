@@ -1,8 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes        #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE InstanceSigs               #-}
-{-# LANGUAGE UndecidableSuperClasses    #-}
-
 module Data.Schematic.Lens
   ( FIndex
   , FElem(..)

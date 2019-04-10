@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE CPP                 #-}
 
 module Data.Schematic.DSL where
 
@@ -18,20 +17,12 @@ import           Data.Vinyl
 import           Data.Vinyl.Functor
 
 
--- #if MIN_VERSION_base(4,12,0)
 type Constructor a
   = forall fields b
   . ( fields ~ FieldsOf a, FSubset fields b (FImage fields b)
     , ReprObjectConstr fields )
   => Rec (Tagged fields :. FieldRepr) b
   -> JsonRepr ('SchemaObject fields)
--- #else
--- type Constructor a
---   = forall fields b
---   . (fields ~ FieldsOf a, FSubset fields b (FImage fields b))
---   => Rec (Tagged fields :. FieldRepr) b
---   -> JsonRepr ('SchemaObject fields)
--- #endif
 
 withRepr :: Constructor a
 withRepr = ReprObject . rmap (unTagged . getCompose) . fcast
@@ -62,19 +53,6 @@ instance SingI so => Representable ('SchemaOptional so) where
 instance (SingI (h ': tl), ReprUnionConstr tl)
   => Representable ('SchemaUnion (h ': tl)) where
   constructField sfn _ u = withKnownSymbol sfn $ FieldRepr $ ReprUnion u
-
--- construct :: Sing s -> Repr s -> JsonRepr s
--- construct s r = case s of
---   SSchemaObject _          -> ReprObject r
---   SSchemaArray _ _         -> ReprArray r
---   SSchemaText _            -> ReprText r
---   SSchemaNumber _          -> ReprNumber r
---   SSchemaBoolean           -> ReprBoolean r
---   SSchemaOptional _        -> ReprOptional r
---   SSchemaNull              -> ReprNull
---   SSchemaUnion ss          -> case ss of
---     SNil      -> error "unconstructable union"
---     SCons _ _ -> ReprUnion r
 
 type family FieldsOf (s :: Schema) :: [(Symbol, Schema)] where
   FieldsOf ('SchemaObject fs) = fs

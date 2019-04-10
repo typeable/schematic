@@ -1,25 +1,20 @@
 {-# OPTIONS_GHC -Wno-unticked-promoted-constructors #-}
-{-# LANGUAGE CPP               #-}
-{-# LANGUAGE LambdaCase        #-}
-
 {-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds         #-}
 {-# LANGUAGE TypeApplications  #-}
-
 
 module HelpersSpec (spec, main) where
 
 import Control.Lens
 import Data.ByteString.Lazy.Lens
 import Data.Foldable
+import Data.Monoid ((<>))
 import Data.Schematic
 import Data.Text as T
 import Data.Text.Lens
 import Test.Hspec
-#if !MIN_VERSION_base(4,11,0)
-import Data.Monoid ((<>))
-#endif
 
 
 type UUIDSchema = 'SchemaObject '[ '("uuid", 'SchemaText IsUUID) ]

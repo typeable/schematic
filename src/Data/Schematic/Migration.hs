@@ -1,6 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE TemplateHaskell     #-}
 
 module Data.Schematic.Migration where
 

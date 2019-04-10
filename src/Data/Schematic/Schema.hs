@@ -1,7 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE EmptyCase           #-}
--- {-# LANGUAGE PolyKinds           #-}
 {-# OPTIONS_GHC -fprint-explicit-kinds #-}
 
 module Data.Schematic.Schema where
@@ -29,14 +27,13 @@ import           Data.Vector as V
 import           Data.Vinyl hiding (Dict)
 import           GHC.Exts
 import           GHC.Generics (Generic)
+import           GHC.TypeLits as TL
 import           Prelude as P
 import           Test.SmallCheck.Series as S
 #if !MIN_VERSION_base(4,12,0)
 import qualified Data.Vinyl.TypeLevel as V
 #endif
-#if !MIN_VERSION_base(4,11,0)
 import           Data.Monoid ((<>))
-#endif
 
 
 singletons [d|
@@ -310,4 +307,5 @@ instance J.ToJSON (JsonRepr a) where
 type family TopLevel (schema :: Schema) :: Constraint where
   TopLevel ('SchemaArray acs s) = ()
   TopLevel ('SchemaObject o)    = ()
-  TopLevel spec                 = 'True ~ 'False
+  TopLevel spec                 = TypeError ('TL.Text "Only Object or Array"
+    ':$$: 'TL.Text "   should be on the top level")

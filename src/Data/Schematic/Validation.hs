@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 module Data.Schematic.Validation where
 
 import Control.Monad
@@ -7,6 +6,7 @@ import Data.Aeson
 import Data.Aeson.Types
 import Data.Foldable
 import Data.Functor.Identity
+import Data.Monoid ((<>))
 import Data.Schematic.Constraints
 import Data.Schematic.Path
 import Data.Schematic.Schema
@@ -17,12 +17,8 @@ import Data.Traversable
 import Data.Union
 import Data.Vector as V
 import Data.Vinyl
-import Data.Vinyl.TypeLevel
 import Prelude as P
 import Text.Regex.TDFA
-#if !MIN_VERSION_base(4,11,0)
-import Data.Monoid ((<>))
-#endif
 
 
 type Validation a = ValidationT ErrorMap Identity a
@@ -104,6 +100,26 @@ validateArrayConstraint (JSONPath path) v s =
     $ vWarning $ mmSingleton path $ pure
       $ "length of " <> path <> " should be == " <> T.pack (show n)
 
+class ValidateConstraint t c where
+  validateConstraint
+    :: [DemotedPathSegment] -> t -> Sing (a::c) -> Validation ()
+
+instance ValidateConstraint Text TextConstraint where
+  validateConstraint = validateTextConstraint . demotedPathToText
+
+instance ValidateConstraint Scientific NumberConstraint where
+  validateConstraint = validateNumberConstraint . demotedPathToText
+
+instance ValidateConstraint (V.Vector a) ArrayConstraint where
+  validateConstraint = validateArrayConstraint . demotedPathToText
+
+validateConstraints
+  :: ValidateConstraint t c
+  => [DemotedPathSegment] -> t -> Sing (cs :: [c]) -> Validation ()
+validateConstraints _ _ SNil = pure ()
+validateConstraints dp t (SCons c cs) = do
+  validateConstraint dp t c >> validateConstraints dp t cs
+
 validateJsonRepr
   :: Sing schema
   -> [DemotedPathSegment]
@@ -111,34 +127,14 @@ validateJsonRepr
   -> Validation ()
 validateJsonRepr sschema dpath jr = case jr of
   ReprText t -> case sschema of
-    SSchemaText scs -> do
-      let
-        process :: Sing (cs :: [TextConstraint]) -> Validation ()
-        process SNil         = pure ()
-        process (SCons c cs) = do
-          validateTextConstraint (demotedPathToText dpath) t c
-          process cs
-      process scs
+    SSchemaText scs -> validateConstraints dpath t scs
   ReprNumber n -> case sschema of
-    SSchemaNumber scs -> do
-      let
-        process :: Sing (cs :: [NumberConstraint]) -> Validation ()
-        process SNil         = pure ()
-        process (SCons c cs) = do
-          validateNumberConstraint (demotedPathToText dpath) n c
-          process cs
-      process scs
+    SSchemaNumber scs -> validateConstraints dpath n scs
   ReprNull -> pure ()
   ReprBoolean _ -> pure ()
   ReprArray v -> case sschema of
     SSchemaArray acs s -> do
-      let
-        process :: Sing (cs :: [ArrayConstraint]) -> Validation ()
-        process SNil         = pure ()
-        process (SCons c cs) = do
-          validateArrayConstraint (demotedPathToText dpath) v c
-          process cs
-      process acs
+      validateConstraints dpath v acs
       for_ (V.indexed v) $ \(ix, jr') -> do
         let newPath = dpath <> pure (Ix $ fromIntegral ix)
         validateJsonRepr s newPath jr'
@@ -155,46 +151,17 @@ validateJsonRepr sschema dpath jr = case jr of
           let newPath = dpath <> [Key (knownFieldName f)]
           validateJsonRepr (knownFieldSchema f) newPath d
           go ftl
-  ReprUnion _ -> pure () -- FIXME
-    -- case sschema of
-    --   SSchemaUnion ss -> case ss of
-    --     SCons s stl -> case umatch' s u of
-    --       Nothing -> case urestrict u of
-    --         Nothing ->
-    --           fail "impossible to produce subUnion, please report this as a bug"
-    --         Just x -> do
-    --           let
-    --             JSONPath path = demotedPathToText dpath
-    --           case stl of
-    --             SNil -> void $ vWarning $ mmSingleton path
-    --               $ pure "union handling error, please report this as bug"
-    --             SCons s' stl' ->
-    --               validateJsonRepr (SSchemaUnion (SCons s' stl')) dpath
-    --                 $ toUnion (SCons s' stl') x
-    --       Just x  -> validateJsonRepr s dpath x
-
--- subUnion
---   :: Sing (s ': stl)
---   -> (  USubset stl (s ': stl) (RImage stl (s ': stl))
---      => Union f (s ': stl)
---      -> Maybe (Union f stl) )
--- subUnion (SCons s stl) = urestrict
-
--- withUSubset
---   :: Sing (s ': stl)
---   -> (USubset stl (s ': stl) (RImage stl (s ': stl)) => Maybe (Union f stl))
---   -> Maybe (Union f stl)
--- withUSubset (SCons s stl) r = r
-
-toUnion
-  :: (USubset s' (s ': ss) (RImage s' (s ': ss)), ReprUnionConstr ss)
-  => Sing (s ': ss)
-  -> Union JsonRepr s'
-  -> JsonRepr ('SchemaUnion (s ': ss))
-toUnion _ = ReprUnion . urelax
-
-umatch' :: UElem a as i => Sing a -> Union f as -> Maybe (f a)
-umatch' _ u = umatch u
+  ReprUnion ru -> -- pure () -- FIXME
+    case sschema of
+      SSchemaUnion su -> validateUnion su ru
+    where
+      validateUnion
+        :: forall (us :: [Schema])
+        . Sing us -> Union JsonRepr us -> Validation ()
+      validateUnion ss r  = case (ss,r) of
+        (SCons (s :: Sing su) _, This v) -> validateJsonRepr s dpath v
+        (SCons _ stl, That r')           -> validateUnion stl r'
+        (SNil,_) -> fail "Invalid union. Please report this as a bug"
 
 parseAndValidateJson
   :: forall schema
@@ -211,10 +178,3 @@ parseAndValidateJson v =
       in case res of
         Left em  -> ValidationError em
         Right () -> Valid jsonRepr
-
--- parseAndValidateJsonBy
---   :: (FromJSON (JsonRepr schema), TopLevel schema, SingI schema)
---   => proxy schema
---   -> Value
---   -> ParseResult (JsonRepr schema)
--- parseAndValidateJsonBy _ = parseAndValidateJson

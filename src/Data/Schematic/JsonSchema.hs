@@ -1,8 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE OverloadedLabels    #-}
-{-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE TemplateHaskell     #-}
-
 module Data.Schematic.JsonSchema
   ( toJsonSchema
   , toJsonSchema'
