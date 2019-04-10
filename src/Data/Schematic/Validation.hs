@@ -154,9 +154,7 @@ validateJsonRepr sschema dpath jr = case jr of
   ReprUnion ru -> case sschema of
     SSchemaUnion su -> validateUnion su ru
     where
-      validateUnion
-        :: forall (us :: [Schema])
-        . Sing us -> Union JsonRepr us -> Validation ()
+      validateUnion :: Sing us -> Union JsonRepr us -> Validation ()
       validateUnion ss r  = case (ss,r) of
         (SCons (s :: Sing su) _, This v) -> validateJsonRepr s dpath v
         (SCons _ stl, That r')           -> validateUnion stl r'
