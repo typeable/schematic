@@ -1,33 +1,29 @@
 {-# OPTIONS_GHC -fprint-potential-instances #-}
+{-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE OverloadedLists #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE OverloadedLists     #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeApplications    #-}
 
 module SchemaSpec (spec, main) where
 
 import Control.Lens
 import Data.Aeson
 import Data.ByteString.Lazy
-import Data.Functor.Identity
+import Data.Monoid ((<>))
 import Data.Proxy
 import Data.Schematic
-import Data.Schematic.Generator
-import Data.Singletons
-import Data.Tagged
 import Data.Vinyl
 import Test.Hspec
 import Test.Hspec.SmallCheck
 import Test.SmallCheck as SC
-import Test.SmallCheck.Drivers as SC
 import Test.SmallCheck.Series as SC
 
-import Debug.Trace
 
 type SchemaExample = 'SchemaObject
   '[ '("foo", 'SchemaArray '[ 'AEq 1] ('SchemaNumber '[ 'NGt 10]))
@@ -37,6 +33,12 @@ type SchemaExample2 = 'SchemaObject
   '[ '("foo", 'SchemaArray '[ 'AEq 2] ('SchemaText '[ 'TGt 10]))
    , '("bar", 'SchemaOptional ('SchemaText '[ 'TRegex "[0-9]+"]))]
 
+type SchemaExample3 = 'SchemaUnion '[SchemaExample]
+
+type SchemaExample4 = 'SchemaObject
+  '[ '("baz3", SchemaExample3)
+  ,  '("baz1", SchemaExample)]
+
 jsonExample :: JsonRepr SchemaExample
 jsonExample = withRepr @SchemaExample
    $ field @"bar" (Just "bar")
@@ -45,7 +47,7 @@ jsonExample = withRepr @SchemaExample
 
 type AddQuuz =
   'Migration "add_field_quuz"
-   '[ 'Diff '[] ('AddKey "quuz" (SchemaNumber '[])) ]
+   '[ 'Diff '[] ('AddKey "quuz" ('SchemaNumber '[])) ]
 
 type DeleteQuuz =
   'Migration "remove_field_quuz"
@@ -80,6 +82,12 @@ schemaJson = "{\"foo\": [13], \"bar\": null}"
 schemaJson2 :: ByteString
 schemaJson2 = "{\"foo\": [3], \"bar\": null}"
 
+schemaJson3 :: ByteString
+schemaJson3 = schemaJson
+
+schemaJson4 :: ByteString
+schemaJson4 = "{\"baz1\": "<>schemaJson<>", \"baz3\": "<>schemaJson3<>"}"
+
 schemaJsonSeries :: Monad m => SC.Series m (JsonRepr SchemaExample)
 schemaJsonSeries = series
 
@@ -93,7 +101,7 @@ spec = do
   it "decode/encode JsonRepr properly" $
     decode (encode jsonExample) == Just jsonExample
   it "validates correct representation" $
-    ((decodeAndValidateJson schemaJson) :: ParseResult (JsonRepr SchemaExample))
+    ((decodeAndValidateJson schemaJson4) :: ParseResult (JsonRepr SchemaExample4))
       `shouldSatisfy` isValid
   it "returns decoding error on structurally incorrect input" $
     ((decodeAndValidateJson "{}") :: ParseResult (JsonRepr SchemaExample))

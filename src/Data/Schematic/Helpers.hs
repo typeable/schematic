@@ -1,6 +1,6 @@
 module Data.Schematic.Helpers where
 
-import Data.Schematic.Schema
+import Data.Schematic.Constraints
 import GHC.TypeLits
 
 

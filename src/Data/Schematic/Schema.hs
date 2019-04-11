@@ -1,7 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE OverloadedLists     #-}
-{-# LANGUAGE OverloadedStrings   #-}
 {-# OPTIONS_GHC -fprint-explicit-kinds #-}
 
 module Data.Schematic.Schema where
@@ -10,282 +8,53 @@ import           Control.Applicative ((<|>))
 import           Control.Monad
 import           Data.Aeson as J
 import           Data.Aeson.Types as J
+import           Data.Char as C
 import           Data.HashMap.Strict as H
 import           Data.Kind
 import           Data.Maybe
+import           Data.Schematic.Compat
+import           Data.Schematic.Constraints
 import           Data.Schematic.Generator
+import           Data.Schematic.Generator.Regex
 import           Data.Schematic.Instances ()
+import           Data.Schematic.Verifier.Array
 import           Data.Scientific
-import           Data.Singletons.Prelude.List hiding (All, Union)
 import           Data.Singletons.TH
 import           Data.Singletons.TypeLits
 import           Data.Text as T
 import           Data.Union
 import           Data.Vector as V
 import           Data.Vinyl hiding (Dict)
-import qualified Data.Vinyl.TypeLevel as V
 import           GHC.Exts
 import           GHC.Generics (Generic)
-import           GHC.TypeLits
-  (SomeNat(..), SomeSymbol(..), someNatVal, someSymbolVal)
+import           GHC.TypeLits as TL
 import           Prelude as P
-import           Test.SmallCheck.Series
+import           Test.SmallCheck.Series as S
+#if !MIN_VERSION_base(4,12,0)
+import qualified Data.Vinyl.TypeLevel as V
+#endif
+import           Data.Monoid ((<>))
 
 
-type family CRepr (s :: Schema) :: Type where
-  CRepr ('SchemaText cs)  = TextConstraint
-  CRepr ('SchemaNumber cs) = NumberConstraint
-  CRepr ('SchemaObject fs) = (String, Schema)
-  CRepr ('SchemaArray ar s) = ArrayConstraint
+singletons [d|
+  data Schema' s n
+    = SchemaText [TextConstraint' s n]
+    | SchemaBoolean
+    | SchemaNumber [NumberConstraint' n]
+    | SchemaObject [(s, Schema' s n)]
+    | SchemaArray [ArrayConstraint' n] (Schema' s n)
+    | SchemaNull
+    | SchemaOptional (Schema' s n)
+    | SchemaUnion [Schema' s n]
+    deriving (Show, Generic)
+  |]
 
-data TextConstraint
-  = TEq Nat
-  | TLt Nat
-  | TLe Nat
-  | TGt Nat
-  | TGe Nat
-  | TRegex Symbol
-  | TEnum [Symbol]
-  deriving (Generic)
+type SchemaT = Schema' Text (Demote Nat)
+type Schema = Schema' Symbol Nat
 
-instance SingKind TextConstraint where
-  type Demote TextConstraint = DemotedTextConstraint
-  fromSing = \case
-    STEq n -> withKnownNat n (DTEq . fromIntegral $ natVal n)
-    STLt n -> withKnownNat n (DTLt . fromIntegral $ natVal n)
-    STLe n -> withKnownNat n (DTLe . fromIntegral $ natVal n)
-    STGt n -> withKnownNat n (DTGt . fromIntegral $ natVal n)
-    STGe n -> withKnownNat n (DTGe . fromIntegral $ natVal n)
-    STRegex s -> withKnownSymbol s (DTRegex $ T.pack $ symbolVal s)
-    STEnum s -> let
-      d :: Sing (s :: [Symbol]) -> [Text]
-      d SNil               = []
-      d (SCons ss@SSym fs) = T.pack (symbolVal ss) : d fs
-      in DTEnum $ d s
-  toSing = \case
-    DTEq n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (STEq (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-    DTLt n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (STLt (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-    DTLe n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (STLe (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-    DTGt n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (STGt (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-    DTGe n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (STGe (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-    DTRegex s -> case someSymbolVal (T.unpack s) of
-      SomeSymbol (_ :: Proxy n) -> SomeSing (STRegex (SSym :: Sing n))
-    DTEnum ss -> case toSing ss of
-      SomeSing l -> SomeSing (STEnum l)
-
-data DemotedTextConstraint
-  = DTEq Integer
-  | DTLt Integer
-  | DTLe Integer
-  | DTGt Integer
-  | DTGe Integer
-  | DTRegex Text
-  | DTEnum [Text]
-  deriving (Generic, Eq, Show)
-
-data instance Sing (tc :: TextConstraint) where
-  STEq :: Sing n -> Sing ('TEq n)
-  STLt :: Sing n -> Sing ('TLt n)
-  STLe :: Sing n -> Sing ('TLe n)
-  STGt :: Sing n -> Sing ('TGt n)
-  STGe :: Sing n -> Sing ('TGe n)
-  STRegex :: Sing s -> Sing ('TRegex s)
-  STEnum :: Sing ss -> Sing ('TEnum ss)
-
-instance (KnownNat n) => SingI ('TEq n) where sing = STEq sing
-instance (KnownNat n) => SingI ('TGt n) where sing = STGt sing
-instance (KnownNat n) => SingI ('TGe n) where sing = STGe sing
-instance (KnownNat n) => SingI ('TLt n) where sing = STLt sing
-instance (KnownNat n) => SingI ('TLe n) where sing = STLe sing
-instance (KnownSymbol s, SingI s) => SingI ('TRegex s) where sing = STRegex sing
-instance (SingI ss) => SingI ('TEnum ss) where sing = STEnum sing
-
-instance Eq (Sing ('TEq n)) where _ == _ = True
-instance Eq (Sing ('TLt n)) where _ == _ = True
-instance Eq (Sing ('TLe n)) where _ == _ = True
-instance Eq (Sing ('TGt n)) where _ == _ = True
-instance Eq (Sing ('TGe n)) where _ == _ = True
-instance Eq (Sing ('TRegex t)) where _ == _ = True
-instance Eq (Sing ('TEnum ss)) where _ == _ = True
-
-data NumberConstraint
-  = NLe Nat
-  | NLt Nat
-  | NGt Nat
-  | NGe Nat
-  | NEq Nat
-  deriving (Generic)
-
-data DemotedNumberConstraint
-  = DNLe Integer
-  | DNLt Integer
-  | DNGt Integer
-  | DNGe Integer
-  | DNEq Integer
-  deriving (Generic, Eq, Show)
-
-data instance Sing (nc :: NumberConstraint) where
-  SNEq :: Sing n -> Sing ('NEq n)
-  SNGt :: Sing n -> Sing ('NGt n)
-  SNGe :: Sing n -> Sing ('NGe n)
-  SNLt :: Sing n -> Sing ('NLt n)
-  SNLe :: Sing n -> Sing ('NLe n)
-
-instance KnownNat n => SingI ('NEq n) where sing = SNEq sing
-instance KnownNat n => SingI ('NGt n) where sing = SNGt sing
-instance KnownNat n => SingI ('NGe n) where sing = SNGe sing
-instance KnownNat n => SingI ('NLt n) where sing = SNLt sing
-instance KnownNat n => SingI ('NLe n) where sing = SNLe sing
-
-instance Eq (Sing ('NEq n)) where _ == _ = True
-instance Eq (Sing ('NLt n)) where _ == _ = True
-instance Eq (Sing ('NLe n)) where _ == _ = True
-instance Eq (Sing ('NGt n)) where _ == _ = True
-instance Eq (Sing ('NGe n)) where _ == _ = True
-
-instance SingKind NumberConstraint where
-  type Demote NumberConstraint = DemotedNumberConstraint
-  fromSing = \case
-    SNEq n -> withKnownNat n (DNEq . fromIntegral $ natVal n)
-    SNGt n -> withKnownNat n (DNGt . fromIntegral $ natVal n)
-    SNGe n -> withKnownNat n (DNGe . fromIntegral $ natVal n)
-    SNLt n -> withKnownNat n (DNLt . fromIntegral $ natVal n)
-    SNLe n -> withKnownNat n (DNLe . fromIntegral $ natVal n)
-  toSing = \case
-    DNEq n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNEq (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-    DNGt n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNGt (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-    DNGe n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNGe (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-    DNLt n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNLt (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-    DNLe n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SNLe (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-
-data ArrayConstraint
-  = AEq Nat
-  deriving (Generic)
-
-data DemotedArrayConstraint
-  = DAEq Integer
-  deriving (Generic, Eq, Show)
-
-data instance Sing (ac :: ArrayConstraint) where
-  SAEq :: Sing n -> Sing ('AEq n)
-
-instance KnownNat n => SingI ('AEq n) where sing = SAEq sing
-
-instance Eq (Sing ('AEq n)) where _ == _ = True
-
-instance SingKind ArrayConstraint where
-  type Demote ArrayConstraint = DemotedArrayConstraint
-  fromSing = \case
-    SAEq n -> withKnownNat n (DAEq . fromIntegral $ natVal n)
-  toSing = \case
-    DAEq n -> case someNatVal n of
-      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SAEq (SNat :: Sing n))
-      Nothing                       -> error "Negative singleton nat"
-
-data Schema
-  = SchemaText [TextConstraint]
-  | SchemaBoolean
-  | SchemaNumber [NumberConstraint]
-  | SchemaObject [(Symbol, Schema)]
-  | SchemaArray [ArrayConstraint] Schema
-  | SchemaNull
-  | SchemaOptional Schema
-  | SchemaUnion [Schema]
-  deriving (Generic)
-
-data DemotedSchema
-  = DSchemaText [DemotedTextConstraint]
-  | DSchemaNumber [DemotedNumberConstraint]
-  | DSchemaBoolean
-  | DSchemaObject [(Text, DemotedSchema)]
-  | DSchemaArray [DemotedArrayConstraint] DemotedSchema
-  | DSchemaNull
-  | DSchemaOptional DemotedSchema
-  | DSchemaUnion [DemotedSchema]
-  deriving (Generic, Eq, Show)
-
-data instance Sing (schema :: Schema) where
-  SSchemaText :: Sing tcs -> Sing ('SchemaText tcs)
-  SSchemaNumber :: Sing ncs -> Sing ('SchemaNumber ncs)
-  SSchemaBoolean :: Sing 'SchemaBoolean
-  SSchemaArray :: Sing acs -> Sing schema -> Sing ('SchemaArray acs schema)
-  SSchemaObject :: Sing fields -> Sing ('SchemaObject fields)
-  SSchemaOptional :: Sing s -> Sing ('SchemaOptional s)
-  SSchemaNull :: Sing 'SchemaNull
-  SSchemaUnion :: Sing ss -> Sing ('SchemaUnion ss)
-
-instance SingI sl => SingI ('SchemaText sl) where
-  sing = SSchemaText sing
-instance SingI sl => SingI ('SchemaNumber sl) where
-  sing = SSchemaNumber sing
-instance SingI 'SchemaNull where
-  sing = SSchemaNull
-instance SingI 'SchemaBoolean where
-  sing = SSchemaBoolean
-instance (SingI ac, SingI s) => SingI ('SchemaArray ac s) where
-  sing = SSchemaArray sing sing
-instance SingI stl => SingI ('SchemaObject stl) where
-  sing = SSchemaObject sing
-instance SingI s => SingI ('SchemaOptional s) where
-  sing = SSchemaOptional sing
-instance SingI s => SingI ('SchemaUnion s) where
-  sing = SSchemaUnion sing
-
-instance Eq (Sing ('SchemaText cs)) where _ == _ = True
-instance Eq (Sing ('SchemaNumber cs)) where _ == _ = True
-instance Eq (Sing 'SchemaNull) where _ == _ = True
-instance Eq (Sing 'SchemaBoolean) where _ == _ = True
-instance Eq (Sing ('SchemaArray as s)) where _ == _ = True
-instance Eq (Sing ('SchemaObject cs)) where _ == _ = True
-instance Eq (Sing ('SchemaOptional s)) where _ == _ = True
-instance Eq (Sing ('SchemaUnion s)) where _ == _ = True
-
-instance SingKind Schema where
-  type Demote Schema = DemotedSchema
-  fromSing = \case
-    SSchemaText cs -> DSchemaText $ fromSing cs
-    SSchemaNumber cs -> DSchemaNumber $ fromSing cs
-    SSchemaBoolean -> DSchemaBoolean
-    SSchemaArray cs s -> DSchemaArray (fromSing cs) (fromSing s)
-    SSchemaOptional s -> DSchemaOptional $ fromSing s
-    SSchemaNull -> DSchemaNull
-    SSchemaObject cs -> DSchemaObject $ fromSing cs
-    SSchemaUnion ss -> DSchemaUnion $ fromSing ss
-  toSing = \case
-    DSchemaText cs -> case toSing cs of
-      SomeSing scs -> SomeSing $ SSchemaText scs
-    DSchemaNumber cs -> case toSing cs of
-      SomeSing scs -> SomeSing $ SSchemaNumber scs
-    DSchemaBoolean -> SomeSing $ SSchemaBoolean
-    DSchemaArray cs sch -> case (toSing cs, toSing sch) of
-      (SomeSing scs, SomeSing ssch) -> SomeSing $ SSchemaArray scs ssch
-    DSchemaOptional sch -> case toSing sch of
-      SomeSing ssch -> SomeSing $ SSchemaOptional ssch
-    DSchemaNull -> SomeSing SSchemaNull
-    DSchemaObject cs -> case toSing cs of
-      SomeSing scs -> SomeSing $ SSchemaObject scs
-    DSchemaUnion ss -> case toSing ss of
-      SomeSing sss -> SomeSing $ SSchemaUnion sss
+schemaTypeStr :: forall (sch :: Schema). SingI sch => String
+schemaTypeStr =
+  P.map C.toLower $ P.drop 6 $ P.head $ P.words $ show $ (demote' @sch)
 
 data FieldRepr :: (Symbol, Schema) -> Type where
   FieldRepr
@@ -302,7 +71,7 @@ knownFieldName
   .  KnownSymbol fieldName
   => proxy '(fieldName, schema)
   -> Text
-knownFieldName _ = T.pack $ symbolVal (Proxy @fieldName)
+knownFieldName _ = demote' @fieldName
 
 knownFieldSchema
   :: forall proxy fieldName schema
@@ -312,9 +81,8 @@ knownFieldSchema
 knownFieldSchema _ = sing
 
 deriving instance Show (JsonRepr schema) => Show (FieldRepr '(name, schema))
-
-instance Eq (JsonRepr schema) => Eq (FieldRepr '(name, schema)) where
-  FieldRepr a == FieldRepr b = a == b
+deriving instance Eq (JsonRepr schema) => Eq (FieldRepr '(name, schema))
+deriving instance Ord (JsonRepr schema) => Ord (FieldRepr '(name, schema))
 
 instance
   ( KnownSymbol name
@@ -323,9 +91,16 @@ instance
   => Serial m (FieldRepr '(name, schema)) where
   series = FieldRepr <$> series
 
-type family USubsets (u :: [k]) :: Constraint where
-  USubsets '[] = ()
-  USubsets (h ': tl) = (USubset tl (h ': tl) (V.RImage tl (h ': tl)), USubsets tl)
+#if MIN_VERSION_base(4,12,0)
+type ReprObjectConstr fs =
+  ( RMap fs, RecordToList fs, ReifyConstraint Show FieldRepr fs
+  , Eq (Rec FieldRepr fs), Ord (Rec FieldRepr fs))
+#else
+type ReprObjectConstr fs =
+  (V.RecAll FieldRepr fs Show, Eq (Rec FieldRepr fs))
+#endif
+type ReprUnionConstr tl =
+  (Show (Union JsonRepr tl), Eq (Union JsonRepr tl), Ord (Union JsonRepr tl))
 
 data JsonRepr :: Schema -> Type where
   ReprText :: Text -> JsonRepr ('SchemaText cs)
@@ -333,93 +108,20 @@ data JsonRepr :: Schema -> Type where
   ReprBoolean :: Bool -> JsonRepr 'SchemaBoolean
   ReprNull :: JsonRepr 'SchemaNull
   ReprArray :: V.Vector (JsonRepr s) -> JsonRepr ('SchemaArray cs s)
-  ReprObject :: Rec FieldRepr fs -> JsonRepr ('SchemaObject fs)
   ReprOptional :: Maybe (JsonRepr s) -> JsonRepr ('SchemaOptional s)
-  ReprUnion :: Union JsonRepr (h ': tl) -> JsonRepr ('SchemaUnion (h ': tl))
+  ReprUnion :: ReprUnionConstr tl
+    => Union JsonRepr (h ': tl) -> JsonRepr ('SchemaUnion (h ': tl))
+  ReprObject :: ReprObjectConstr fs
+    => Rec FieldRepr fs -> JsonRepr ('SchemaObject fs)
 
-instance (Monad m, Serial m Text, SingI cs)
-  => Serial m (JsonRepr ('SchemaText cs)) where
-  series = decDepth $ fmap ReprText $ textSeries $ fromSing (sing :: Sing cs)
+deriving instance Show (JsonRepr sch)
+deriving instance Eq (JsonRepr sch)
 
-instance (Monad m, Serial m Scientific, SingI cs)
-  => Serial m (JsonRepr ('SchemaNumber cs)) where
-  series = decDepth $ fmap ReprNumber
-    $ numberSeries $ fromSing (sing :: Sing cs)
-
-instance Monad m => Serial m (JsonRepr 'SchemaNull) where
-  series = cons0 ReprNull
-
-instance (Serial m (JsonRepr s), Serial m (V.Vector (JsonRepr s)), SingI cs)
-  => Serial m (JsonRepr ('SchemaArray cs s)) where
-  series = decDepth $ fmap ReprArray
-    $ arraySeries $ fromSing (sing :: Sing cs)
-
-instance (Serial m (JsonRepr s))
-  => Serial m (JsonRepr ('SchemaOptional s)) where
-  series = cons1 ReprOptional
-
-instance (Monad m, Serial m (Rec FieldRepr fs))
-  => Serial m (JsonRepr ('SchemaObject fs)) where
-  series = cons1 ReprObject
-
--- | Move to the union package
-instance Show (JsonRepr ('SchemaText cs)) where
-  show (ReprText t) = "ReprText " P.++ show t
-
-instance Show (JsonRepr ('SchemaNumber cs)) where
-  show (ReprNumber n) = "ReprNumber " P.++ show n
-
-instance Show (JsonRepr 'SchemaBoolean) where
-  show (ReprBoolean n) = "ReprBoolean " P.++ show n
-
-instance Show (JsonRepr 'SchemaNull) where show _ = "ReprNull"
-
-instance Show (JsonRepr s) => Show (JsonRepr ('SchemaArray acs s)) where
-  show (ReprArray v) = "ReprArray " P.++ show v
-
+-- due to issue https://gitlab.haskell.org/ghc/ghc/issues/8128
 #if MIN_VERSION_base(4,12,0)
-instance
-  ( V.RecAll FieldRepr fs Show, RMap fs, ReifyConstraint Show FieldRepr fs
-  , RecordToList fs )
-  => Show (JsonRepr ('SchemaObject fs)) where
-  show (ReprObject fs) = "ReprObject " P.++ show fs
+deriving instance Ord (JsonRepr sch)
+
 #else
-instance V.RecAll FieldRepr fs Show => Show (JsonRepr ('SchemaObject fs)) where
-  show (ReprObject fs) = "ReprObject " P.++ show fs
-#endif
-
-instance Show (JsonRepr s) => Show (JsonRepr ('SchemaOptional s)) where
-  show (ReprOptional s) = "ReprOptional " P.++ show s
-
-instance Show (Union JsonRepr (h ': tl))
-  => Show (JsonRepr ('SchemaUnion (h ': tl))) where
-  show (ReprUnion s) = "ReprUnion " P.++ show s
-
-instance Eq (Rec FieldRepr fs) => Eq (JsonRepr ('SchemaObject fs)) where
-  ReprObject a == ReprObject b = a == b
-
-instance Eq (JsonRepr ('SchemaText cs)) where
-  ReprText a == ReprText b = a == b
-
-instance Eq (JsonRepr ('SchemaNumber cs)) where
-  ReprNumber a == ReprNumber b = a == b
-
-instance Eq (JsonRepr 'SchemaBoolean) where
-  ReprBoolean a == ReprBoolean b = a == b
-
-instance Eq (JsonRepr 'SchemaNull) where
-  ReprNull == ReprNull = True
-
-instance Eq (JsonRepr s) => Eq (JsonRepr ('SchemaArray as s)) where
-  ReprArray a == ReprArray b = a == b
-
-instance Eq (JsonRepr s) => Eq (JsonRepr ('SchemaOptional s)) where
-  ReprOptional a == ReprOptional b = a == b
-
-instance Eq (Union JsonRepr (h ': tl))
-  => Eq (JsonRepr ('SchemaUnion (h ': tl))) where
-  ReprUnion a == ReprUnion b = a == b
-
 instance Ord (Rec FieldRepr fs) => Ord (JsonRepr ('SchemaObject fs)) where
   ReprObject a `compare` ReprObject b = a `compare` b
 
@@ -444,6 +146,46 @@ instance Ord (JsonRepr s) => Ord (JsonRepr ('SchemaOptional s)) where
 instance Ord (Union JsonRepr (h ': tl))
   => Ord (JsonRepr ('SchemaUnion (h ': tl))) where
   ReprUnion a `compare` ReprUnion b = a `compare` b
+#endif
+
+instance (Monad m, Serial m Text, SingI cs)
+  => Serial m (JsonRepr ('SchemaText cs)) where
+  series = decDepth $ fmap ReprText $ textSeries $ fromSing (sing :: Sing cs)
+
+instance (Monad m, Serial m Scientific, SingI cs)
+  => Serial m (JsonRepr ('SchemaNumber cs)) where
+  series = decDepth $ fmap ReprNumber
+    $ numberSeries $ fromSing (sing :: Sing cs)
+
+instance Monad m => Serial m (JsonRepr 'SchemaNull) where
+  series = cons0 ReprNull
+
+arraySeries
+  :: (Monad m, Serial m (JsonRepr s))
+  => [ArrayConstraintT] -> S.Series m (V.Vector (JsonRepr s))
+arraySeries cs = maybe (pure V.empty) arraySeries' $ verifyArrayConstraint cs
+
+arraySeries'
+  :: forall m s. (Monad m, Serial m (JsonRepr s))
+  => Maybe VerifiedArrayConstraint -> S.Series m (V.Vector (JsonRepr s))
+arraySeries' ml =
+  V.replicateM (maybe minRepeat f ml) (series :: S.Series m (JsonRepr s))
+  where
+    f (VAEq l) = fromIntegral l
+
+instance (Serial m (JsonRepr s), Serial m (V.Vector (JsonRepr s)), SingI cs)
+  => Serial m (JsonRepr ('SchemaArray cs s)) where
+  series = decDepth $ fmap ReprArray
+    $ arraySeries $ fromSing (sing :: Sing cs)
+
+instance (Serial m (JsonRepr s))
+  => Serial m (JsonRepr ('SchemaOptional s)) where
+  series = cons1 ReprOptional
+
+instance
+  ( Monad m, Serial m (Rec FieldRepr fs), ReprObjectConstr fs)
+  => Serial m (JsonRepr ('SchemaObject fs)) where
+  series = cons1 ReprObject
 
 instance IsList (JsonRepr ('SchemaArray cs s)) where
   type Item (JsonRepr ('SchemaArray cs s)) = JsonRepr s
@@ -462,7 +204,7 @@ instance IsString (JsonRepr ('SchemaText cs)) where
   fromString = ReprText . fromString
 
 fromOptional
-  :: SingI s
+  :: (SingI s, FromJSON (JsonRepr s))
   => Sing ('SchemaOptional s)
   -> J.Value
   -> Parser (Maybe (JsonRepr s))
@@ -478,7 +220,8 @@ parseUnion _ val = parseJSON val
 instance FromJSON (Union JsonRepr '[]) where
   parseJSON = fail "empty union"
 
-instance (SingI a, FromJSON (Union JsonRepr as)) => FromJSON (Union JsonRepr (a ': as)) where
+instance (SingI a, FromJSON (JsonRepr a), FromJSON (Union JsonRepr as))
+  => FromJSON (Union JsonRepr (a ': as)) where
   parseJSON val = (This <$> parseJSON val)
     <|> (That <$> (parseJSON val :: Parser (Union JsonRepr as)))
 
@@ -486,49 +229,57 @@ instance ToJSON (Union JsonRepr as) where
   toJSON (This fa) = toJSON fa
   toJSON (That u)  = toJSON u
 
-instance SingI schema => J.FromJSON (JsonRepr schema) where
-  parseJSON value = case sing :: Sing schema of
-    SSchemaText _          -> withText "String" (pure . ReprText) value
-    SSchemaNumber _        -> withScientific "Number" (pure . ReprNumber) value
-    SSchemaBoolean         -> ReprBoolean <$> parseJSON value
-    SSchemaNull            -> case value of
-      J.Null -> pure ReprNull
-      _      -> typeMismatch "Null" value
-    so@(SSchemaOptional s) -> withSingI s $ ReprOptional <$> fromOptional so value
-    SSchemaArray sa sb     -> withSingI sa $ withSingI sb
-      $ withArray "Array" (fmap ReprArray . traverse parseJSON) value
-    SSchemaObject fs       -> do
-      let
-        demoteFields :: SList s -> H.HashMap Text J.Value -> Parser (Rec FieldRepr s)
-        demoteFields SNil _ = pure RNil
-        demoteFields (SCons (STuple2 (n :: Sing fn) s) tl) h = withKnownSymbol n $ do
-          let fieldName = T.pack $ symbolVal (Proxy @fn)
-          fieldRepr <- case s of
-            SSchemaText so -> case H.lookup fieldName h of
-              Just v  -> withSingI so $ FieldRepr <$> parseJSON v
-              Nothing -> fail $ "No text field: " P.++ show fieldName
-            SSchemaNumber so -> case H.lookup fieldName h of
-              Just v  -> withSingI so $ FieldRepr <$> parseJSON v
-              Nothing -> fail $ "No number field: " P.++ show fieldName
-            SSchemaBoolean -> case H.lookup fieldName h of
-              Just v  -> FieldRepr <$> parseJSON v
-              Nothing -> fail $ "No boolean field: " P.++ show fieldName
-            SSchemaNull -> case H.lookup fieldName h of
-              Just v  -> FieldRepr <$> parseJSON v
-              Nothing -> fail $ "No null field: " P.++ show fieldName
-            SSchemaArray sa sb -> case H.lookup fieldName h of
-              Just v  -> withSingI sa $ withSingI sb $ FieldRepr <$> parseJSON v
-              Nothing -> fail $ "No array field: " P.++ show fieldName
-            SSchemaObject so -> case H.lookup fieldName h of
-              Just v  -> withSingI so $ FieldRepr <$> parseJSON v
-              Nothing -> fail $ "No object field" P.++ show fieldName
-            SSchemaOptional so -> case H.lookup fieldName h of
-              Just v -> withSingI so $ FieldRepr <$> parseJSON v
-              Nothing -> withSingI so $ pure $ FieldRepr $ ReprOptional Nothing
-            SSchemaUnion ss -> withSingI ss $ FieldRepr <$> parseUnion ss value
-          (fieldRepr :&) <$> demoteFields tl h
-      ReprObject <$> withObject "Object" (demoteFields fs) value
-    SSchemaUnion ss -> parseUnion ss value
+instance J.FromJSON (JsonRepr ('SchemaText cs)) where
+  parseJSON = withText "String" (pure . ReprText)
+
+instance J.FromJSON (JsonRepr ('SchemaNumber cs)) where
+  parseJSON = withScientific "Number" (pure . ReprNumber)
+
+instance J.FromJSON (JsonRepr 'SchemaBoolean) where
+  parseJSON = fmap ReprBoolean . parseJSON
+
+instance J.FromJSON (JsonRepr 'SchemaNull) where
+  parseJSON value = case value of
+    J.Null -> pure ReprNull
+    _      -> typeMismatch "Null" value
+
+instance
+  J.FromJSON (JsonRepr s) =>  J.FromJSON (JsonRepr ('SchemaOptional s)) where
+  parseJSON = fmap ReprOptional . parseJSON
+
+instance
+  J.FromJSON (JsonRepr sb) => J.FromJSON (JsonRepr ('SchemaArray sa sb)) where
+  parseJSON = withArray "Array" (fmap ReprArray . traverse parseJSON)
+
+instance
+  ( SingI x, ReprUnionConstr xs
+  , FromJSON (Union JsonRepr xs), FromJSON (JsonRepr x) )
+  => J.FromJSON (JsonRepr ('SchemaUnion (x ': xs))) where
+  parseJSON = fmap ReprUnion . parseJSON
+
+class FromHashMap (xs :: [(Symbol, Schema)]) where
+  fromHashMap :: H.HashMap Text J.Value -> Parser (Rec FieldRepr xs)
+
+instance FromHashMap '[] where
+  fromHashMap _ = pure RNil
+
+instance
+  (KnownSymbol n, SingI s, FromHashMap xs, FromJSON (JsonRepr s))
+  => FromHashMap ( '(n,s) ': xs) where
+  fromHashMap h = do
+    fr <- case H.lookup fn h of
+      Nothing -> case (sing :: Sing s) of
+        SSchemaOptional _ -> pure $ FieldRepr @s $ ReprOptional Nothing
+        _ -> fail $ "No " <> schemaTypeStr @s <> " field: " <> show fn
+      Just v -> FieldRepr @s <$> parseJSON v
+    frs <- fromHashMap @xs h
+    pure $ fr :& frs
+    where
+      fn = demote' @n
+
+instance (FromHashMap rs, ReprObjectConstr rs)
+  => J.FromJSON (JsonRepr ('SchemaObject rs)) where
+  parseJSON = fmap ReprObject . withObject "Object" fromHashMap
 
 instance J.ToJSON (JsonRepr a) where
   toJSON ReprNull         = J.Null
@@ -551,9 +302,10 @@ instance J.ToJSON (JsonRepr a) where
         fr@(FieldRepr _) :& tl -> (extract fr) : fold tl
   toJSON (ReprUnion u) = toJSON u
 
-class FalseConstraint a
+-- class FalseConstraint a
 
 type family TopLevel (schema :: Schema) :: Constraint where
   TopLevel ('SchemaArray acs s) = ()
   TopLevel ('SchemaObject o)    = ()
-  TopLevel spec                 = 'True ~ 'False
+  TopLevel spec                 = TypeError ('TL.Text "Only Object or Array"
+    ':$$: 'TL.Text "   should be on the top level")

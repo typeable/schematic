@@ -7,9 +7,10 @@ module Data.Schematic
   , module Data.Schematic.Lens
   , module Data.Schematic.Migration
   , module Data.Schematic.Schema
+  , module Data.Schematic.Constraints
+  , module Data.Schematic.Compat
   , decodeAndValidateJson
   , parseAndValidateJson
-  , parseAndValidateJsonBy
   , parseAndValidateTopVersionJson
   , parseAndValidateWithMList
   , decodeAndValidateVersionedWithMList
@@ -27,6 +28,8 @@ import Data.Aeson as J
 import Data.Aeson.Types as J
 import Data.ByteString.Lazy as BL
 import Data.Functor.Identity as F
+import Data.Schematic.Compat
+import Data.Schematic.Constraints
 import Data.Schematic.DSL
 import Data.Schematic.Helpers
 import Data.Schematic.JsonSchema
@@ -41,7 +44,8 @@ import Data.Text as T
 
 parseAndValidateTopVersionJson
   :: forall proxy (v :: Versioned)
-  .  (SingI (TopVersion (AllVersions v)))
+  . ( SingI (TopVersion (AllVersions v))
+    , FromJSON (JsonRepr (TopVersion (AllVersions v))) )
   => proxy v
   -> J.Value
   -> ParseResult (JsonRepr (TopVersion (AllVersions v)))
@@ -64,13 +68,9 @@ parseAndValidateWithMList
   -> m (ParseResult (JsonRepr (Head revisions)))
 parseAndValidateWithMList MNil v = pure $ parseAndValidateJson v
 parseAndValidateWithMList (Tagged f :&& tl) v =
-  case parseAndValidateJsonBy Proxy v of
+  case parseAndValidateJson v of
     Valid a           -> pure $ Valid a
-    DecodingError _   -> do
-      pr <- parseAndValidateWithMList tl v
-      let pr' = f <$> pr
-      sequence pr'
-    ValidationError _ -> do
+    _   -> do
       pr <- parseAndValidateWithMList tl v
       let pr' = f <$> pr
       sequence pr'
@@ -95,7 +95,8 @@ decodeAndValidateVersionedWithMList _ mlist bs = case decode bs of
   Just x  -> parseAndValidateWithMList mlist x
 
 decodeAndValidateVersionedWithPureMList
-  :: proxy versioned
+  :: FromJSON (JsonRepr (Head (MapSnd (AllVersions versioned))))
+  => proxy versioned
   -> MList F.Identity (MapSnd (AllVersions versioned))
   -> BL.ByteString
   -> ParseResult (JsonRepr (Head (MapSnd (AllVersions versioned))))
