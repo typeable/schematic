@@ -125,12 +125,12 @@ validateJsonRepr
   -> [DemotedPathSegment]
   -> JsonRepr schema
   -> Validation ()
-validateJsonRepr sschema dpath jr = case jr of
+validateJsonRepr sschema dpath = \case
   ReprText t -> case sschema of
     SSchemaText scs -> validateConstraints dpath t scs
   ReprNumber n -> case sschema of
     SSchemaNumber scs -> validateConstraints dpath n scs
-  ReprNull -> pure ()
+  ReprNull  -> pure ()
   ReprBoolean _ -> pure ()
   ReprArray v -> case sschema of
     SSchemaArray acs s -> do
@@ -156,8 +156,8 @@ validateJsonRepr sschema dpath jr = case jr of
     where
       validateUnion :: Sing us -> Union JsonRepr us -> Validation ()
       validateUnion ss r  = case (ss,r) of
-        (SCons (s :: Sing su) _, This v) -> validateJsonRepr s dpath v
-        (SCons _ stl, That r')           -> validateUnion stl r'
+        (SCons s _, This v)     -> validateJsonRepr s dpath v
+        (SCons _ stl, That r')  -> validateUnion stl r'
         (SNil,_) -> fail "Invalid union. Please report this as a bug"
 
 parseAndValidateJson
