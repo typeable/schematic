@@ -30,13 +30,13 @@ textConstraint :: DemotedTextConstraint -> State D4.Schema ()
 textConstraint (DTEq n) = modify $ \s -> s
   { _schemaMinLength = pure $ fromIntegral n
   , _schemaMaxLength = pure $ fromIntegral n }
-textConstraint (DTLt n) = modify $ \s -> s
-  { _schemaMaxLength = pure . fromIntegral $ n + 1 }
 textConstraint (DTLe n) = modify $ \s -> s
   { _schemaMaxLength = pure . fromIntegral $ n }
-textConstraint (DTGt n) =
+textConstraint (DTLt n) =
   let n' = if n == 0 then 0 else n - 1
-  in modify $ \s -> s { _schemaMinLength = pure . fromIntegral $ n' }
+  in modify $ \s -> s { _schemaMaxLength = pure . fromIntegral $ n' }
+textConstraint (DTGt n) = modify $ \s -> s
+  { _schemaMinLength = pure . fromIntegral $ n + 1 }
 textConstraint (DTGe n) = modify $ \s -> s
   { _schemaMinLength = pure . fromIntegral $ n }
 textConstraint (DTRegex r) = modify $ \s -> s { _schemaPattern = pure r }
@@ -47,19 +47,30 @@ textConstraint (DTEnum ss) =
 numberConstraint :: DemotedNumberConstraint -> State D4.Schema ()
 numberConstraint (DNLe n) = modify $ \s -> s
   { _schemaMaximum = pure . fromIntegral $ n }
-numberConstraint (DNLt n) = modify $ \s -> s
-  { _schemaMaximum = pure . fromIntegral $ n + 1 }
-numberConstraint (DNGt n) = modify $ \s -> s
-  { _schemaMinimum = pure . fromIntegral $ n }
-numberConstraint (DNGe n) =
+numberConstraint (DNLt n) =
   let n' = if n == 0 then 0 else n - 1
-  in modify $ \s -> s { _schemaMinimum = pure . fromIntegral $ n' }
+  in modify $ \s -> s { _schemaMaximum = pure . fromIntegral $ n' }
+numberConstraint (DNGt n) = modify $ \s -> s
+  { _schemaMinimum = pure . fromIntegral $ n + 1 }
+numberConstraint (DNGe n) = modify $ \s -> s
+  { _schemaMinimum = pure . fromIntegral $ n }
 numberConstraint (DNEq n) = modify $ \s -> s
   { _schemaMinimum = pure $ fromIntegral n
   , _schemaMaximum = pure $ fromIntegral n }
 
 arrayConstraint :: DemotedArrayConstraint -> State D4.Schema ()
-arrayConstraint (DAEq _) = pure ()
+arrayConstraint (DALe n) = modify $ \s -> s
+  { _schemaMaxItems = pure . fromIntegral $ n }
+arrayConstraint (DALt n) =
+  let n' = if n == 0 then 0 else n - 1
+  in modify $ \s -> s { _schemaMaxItems = pure . fromIntegral $ n' }
+arrayConstraint (DAGt n) = modify $ \s -> s
+  { _schemaMinItems = pure . fromIntegral $ n + 1 }
+arrayConstraint (DAGe n) = modify $ \s -> s
+  { _schemaMinItems = pure . fromIntegral $ n }
+arrayConstraint (DAEq n) = modify $ \s -> s
+  { _schemaMinItems = pure $ fromIntegral n
+  , _schemaMaxItems = pure $ fromIntegral n }
 
 toJsonSchema
   :: forall proxy schema
