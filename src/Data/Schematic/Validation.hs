@@ -160,6 +160,34 @@ validateArrayConstraint (JSONPath path) v = \case
       errMsg    = "length should be == " <> T.pack (show nlen)
       warn      = vWarning $ mmSingleton path (pure errMsg)
     unless predicate warn
+  SAGt n -> do
+    let
+      nlen      = withKnownNat n $ natVal n
+      predicate = fromIntegral (V.length v) > nlen
+      errMsg    = "length should be > " <> T.pack (show nlen)
+      warn      = vWarning $ mmSingleton path (pure errMsg)
+    unless predicate warn
+  SAGe n -> do
+    let
+      nlen      = withKnownNat n $ natVal n
+      predicate = fromIntegral (V.length v) >= nlen
+      errMsg    = "length should be >= " <> T.pack (show nlen)
+      warn      = vWarning $ mmSingleton path (pure errMsg)
+    unless predicate warn
+  SALt n -> do
+    let
+      nlen      = withKnownNat n $ natVal n
+      predicate = fromIntegral (V.length v) < nlen
+      errMsg    = "length should be < " <> T.pack (show nlen)
+      warn      = vWarning $ mmSingleton path (pure errMsg)
+    unless predicate warn
+  SALe n -> do
+    let
+      nlen      = withKnownNat n $ natVal n
+      predicate = fromIntegral (V.length v) <= nlen
+      errMsg    = "length should be <= " <> T.pack (show nlen)
+      warn      = vWarning $ mmSingleton path (pure errMsg)
+    unless predicate warn
 
 validateJsonRepr
   :: Sing schema
