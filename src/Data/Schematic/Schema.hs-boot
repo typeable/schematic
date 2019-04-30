@@ -46,9 +46,17 @@ data DemotedNumberConstraint
 
 data ArrayConstraint
   = AEq Nat
+  | AGt Nat
+  | AGe Nat
+  | ALt Nat
+  | ALe Nat
 
 data DemotedArrayConstraint
   = DAEq Integer
+  | DAGt Integer
+  | DAGe Integer
+  | DALt Integer
+  | DALe Integer
 
 data Schema
   = SchemaText [TextConstraint]

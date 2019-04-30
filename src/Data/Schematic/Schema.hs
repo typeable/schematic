@@ -180,26 +180,62 @@ instance SingKind NumberConstraint where
 
 data ArrayConstraint
   = AEq Nat
+  | AGt Nat
+  | AGe Nat
+  | ALt Nat
+  | ALe Nat
   deriving (Generic)
 
 data DemotedArrayConstraint
   = DAEq Integer
+  | DAGt Integer
+  | DAGe Integer
+  | DALt Integer
+  | DALe Integer
   deriving (Generic, Eq, Show)
 
 data instance Sing (ac :: ArrayConstraint) where
   SAEq :: Sing n -> Sing ('AEq n)
+  SAGt :: Sing n -> Sing ('AGt n)
+  SAGe :: Sing n -> Sing ('AGe n)
+  SALt :: Sing n -> Sing ('ALt n)
+  SALe :: Sing n -> Sing ('ALe n)
 
 instance KnownNat n => SingI ('AEq n) where sing = SAEq sing
+instance KnownNat n => SingI ('AGt n) where sing = SAGt sing
+instance KnownNat n => SingI ('AGe n) where sing = SAGe sing
+instance KnownNat n => SingI ('ALt n) where sing = SALt sing
+instance KnownNat n => SingI ('ALe n) where sing = SALe sing
 
 instance Eq (Sing ('AEq n)) where _ == _ = True
+instance Eq (Sing ('AGt n)) where _ == _ = True
+instance Eq (Sing ('AGe n)) where _ == _ = True
+instance Eq (Sing ('ALt n)) where _ == _ = True
+instance Eq (Sing ('ALe n)) where _ == _ = True
 
 instance SingKind ArrayConstraint where
   type Demote ArrayConstraint = DemotedArrayConstraint
   fromSing = \case
     SAEq n -> withKnownNat n (DAEq . fromIntegral $ natVal n)
+    SAGt n -> withKnownNat n (DAGt . fromIntegral $ natVal n)
+    SAGe n -> withKnownNat n (DAGe . fromIntegral $ natVal n)
+    SALt n -> withKnownNat n (DALt . fromIntegral $ natVal n)
+    SALe n -> withKnownNat n (DALe . fromIntegral $ natVal n)
   toSing = \case
     DAEq n -> case someNatVal n of
       Just (SomeNat (_ :: Proxy n)) -> SomeSing (SAEq (SNat :: Sing n))
+      Nothing                       -> error "Negative singleton nat"
+    DAGt n -> case someNatVal n of
+      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SAGt (SNat :: Sing n))
+      Nothing                       -> error "Negative singleton nat"
+    DAGe n -> case someNatVal n of
+      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SAGe (SNat :: Sing n))
+      Nothing                       -> error "Negative singleton nat"
+    DALt n -> case someNatVal n of
+      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SALt (SNat :: Sing n))
+      Nothing                       -> error "Negative singleton nat"
+    DALe n -> case someNatVal n of
+      Just (SomeNat (_ :: Proxy n)) -> SomeSing (SALe (SNat :: Sing n))
       Nothing                       -> error "Negative singleton nat"
 
 data Schema
