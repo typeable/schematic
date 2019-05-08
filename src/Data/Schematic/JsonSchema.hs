@@ -47,11 +47,12 @@ textConstraint (DTEnum ss) =
 numberConstraint :: DemotedNumberConstraint -> State D4.Schema ()
 numberConstraint (DNLe n) = modify $ \s -> s
   { _schemaMaximum = pure . fromIntegral $ n }
-numberConstraint (DNLt n) =
-  let n' = if n == 0 then 0 else n - 1
-  in modify $ \s -> s { _schemaMaximum = pure . fromIntegral $ n' }
+numberConstraint (DNLt n) = modify $ \s -> s
+  { _schemaMaximum = pure . fromIntegral $ n
+  , _schemaExclusiveMaximum = pure True }
 numberConstraint (DNGt n) = modify $ \s -> s
-  { _schemaMinimum = pure . fromIntegral $ n + 1 }
+  { _schemaMinimum = pure . fromIntegral $ n
+  , _schemaExclusiveMinimum = pure True }
 numberConstraint (DNGe n) = modify $ \s -> s
   { _schemaMinimum = pure . fromIntegral $ n }
 numberConstraint (DNEq n) = modify $ \s -> s
