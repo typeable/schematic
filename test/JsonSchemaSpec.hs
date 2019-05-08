@@ -76,10 +76,10 @@ spec = do
     let
       schema = D4.SchemaWithURI (fromJust $ toJsonSchema (Proxy @SchemaNumberExample)) Nothing
       obj = withRepr @SchemaNumberExample $
-           field @"n1" 2
+           field @"n1" 1.1
         :& field @"n2" 1
-        :& field @"n3" 0
-        :& field @"n4" 1
+        :& field @"n3" 0.9
+        :& field @"n4" 1.0
         :& RNil
     fetchHTTPAndValidate schema (toJSON obj) >>= \case
       Left e -> fail "failed to validate test example"
