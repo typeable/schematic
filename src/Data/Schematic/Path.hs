@@ -4,36 +4,33 @@ import Data.Foldable as F
 import Data.Singletons.Prelude
 import Data.Singletons.TypeLits
 import Data.Text as T
+import Data.Aeson.Internal
 
 
-data PathSegment = Key Symbol | Ix Nat
+newtype JSONPathText = JSONPathText Text
+  deriving (Show)
+
+data PathSegment = PathKey Symbol | PathIx Nat
 
 data instance Sing (jp :: PathSegment) where
-  SKey :: (SingI k) => Sing (k :: Symbol) -> Sing ('Key k)
-  SIx :: (SingI n) => Sing (n :: Nat) -> Sing ('Ix n)
+  SKey :: (SingI k) => Sing (k :: Symbol) -> Sing ('PathKey k)
+  SIx :: (SingI n) => Sing (n :: Nat) -> Sing ('PathIx n)
 
-data DemotedPathSegment = DKey Text | DIx Integer
-  deriving (Show)
-
--- | Textual representation of json path.
-newtype JSONPath = JSONPath Text
-  deriving (Show)
-
-demotePath :: Sing (ps :: [PathSegment]) -> [DemotedPathSegment]
+demotePath :: Sing (ps :: [PathSegment]) -> JSONPath
 demotePath = go []
   where
-    go :: [DemotedPathSegment] -> Sing (ps :: [PathSegment]) -> [DemotedPathSegment]
+    go :: JSONPath -> Sing (ps :: [PathSegment]) -> JSONPath
     go acc SNil = acc
     go acc (SCons p ps) = go (acc ++ [demotePathSeg p]) ps
-    demotePathSeg :: Sing (ps :: PathSegment) -> DemotedPathSegment
-    demotePathSeg (SKey s) = DKey $ T.pack $ withKnownSymbol s $ symbolVal s
-    demotePathSeg (SIx n) = DIx $ withKnownNat n $ fromIntegral $ natVal n
+    demotePathSeg :: Sing (ps :: PathSegment) -> JSONPathElement
+    demotePathSeg (SKey s) = Key $ T.pack $ withKnownSymbol s $ symbolVal s
+    demotePathSeg (SIx n) = Index $ withKnownNat n $ fromIntegral $ natVal n
 
-demotedPathToText :: [DemotedPathSegment] -> JSONPath
-demotedPathToText = JSONPath . F.foldl' renderPathSegment ""
+demotedPathToText :: JSONPath -> JSONPathText
+demotedPathToText = JSONPathText . F.foldl' renderPathSegment ""
   where
-    renderPathSegment acc (DKey t) = acc <> "." <> t
-    renderPathSegment acc (DIx n)  = acc <> "[" <> T.pack (show n) <> "]"
+    renderPathSegment acc (Key t) = acc <> "." <> t
+    renderPathSegment acc (Index n)  = acc <> "[" <> T.pack (show n) <> "]"
 
-pathToText :: Sing (ps :: [PathSegment]) -> JSONPath
+pathToText :: Sing (ps :: [PathSegment]) -> JSONPathText
 pathToText = demotedPathToText . demotePath
