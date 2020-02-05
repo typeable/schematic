@@ -3,6 +3,7 @@ module Data.Schematic.Validation where
 import Control.Monad
 import Control.Monad.Validation
 import Data.Aeson
+import Data.Aeson.Internal
 import Data.Aeson.Types
 import Data.Foldable
 import Data.Functor.Identity
@@ -49,11 +50,11 @@ isValidationError (ValidationError _) = True
 isValidationError _                   = False
 
 validateTextConstraint
-  :: JSONPath
+  :: JSONPathText
   -> Text
   -> Sing (tcs :: TextConstraint)
   -> Validation ()
-validateTextConstraint (JSONPath path) t = \case
+validateTextConstraint (JSONPathText path) t = \case
   STEq n -> do
     let
       nlen      = withKnownNat n $ natVal n
@@ -106,11 +107,11 @@ validateTextConstraint (JSONPath path) t = \case
     unless (matching ss) warn
 
 validateNumberConstraint
-  :: JSONPath
+  :: JSONPathText
   -> Scientific
   -> Sing (tcs :: NumberConstraint)
   -> Validation ()
-validateNumberConstraint (JSONPath path) num = \case
+validateNumberConstraint (JSONPathText path) num = \case
   SNEq n -> do
     let
       nlen      = withKnownNat n $ natVal n
@@ -148,11 +149,11 @@ validateNumberConstraint (JSONPath path) num = \case
     unless predicate warn
 
 validateArrayConstraint
-  :: JSONPath
+  :: JSONPathText
   -> V.Vector a
   -> Sing (tcs :: ArrayConstraint)
   -> Validation ()
-validateArrayConstraint (JSONPath path) v = \case
+validateArrayConstraint (JSONPathText path) v = \case
   SAEq n -> do
     let
       nlen      = withKnownNat n $ natVal n
@@ -191,7 +192,7 @@ validateArrayConstraint (JSONPath path) v = \case
 
 validateJsonRepr
   :: Sing schema
-  -> [DemotedPathSegment]
+  -> JSONPath
   -> JsonRepr schema
   -> Validation ()
 validateJsonRepr sschema dpath jr = case jr of
@@ -225,7 +226,7 @@ validateJsonRepr sschema dpath jr = case jr of
           process cs
       process acs
       for_ (V.indexed v) $ \(ix, jr') -> do
-        let newPath = dpath <> pure (DIx $ fromIntegral ix)
+        let newPath = dpath <> pure (Index $ fromIntegral ix)
         validateJsonRepr s newPath jr'
   ReprOptional d -> case sschema of
     SSchemaOptional ss -> case d of
@@ -237,7 +238,7 @@ validateJsonRepr sschema dpath jr = case jr of
         go :: Rec FieldRepr (ts :: [(Symbol, Schema)] ) -> Validation ()
         go RNil                     = pure ()
         go (f@(FieldRepr d) :& ftl) = do
-          let newPath = dpath <> [DKey (knownFieldName f)]
+          let newPath = dpath <> [Key (knownFieldName f)]
           validateJsonRepr (knownFieldSchema f) newPath d
           go ftl
   ReprUnion _ -> pure () -- FIXME
@@ -249,7 +250,7 @@ validateJsonRepr sschema dpath jr = case jr of
     --           fail "impossible to produce subUnion, please report this as a bug"
     --         Just x -> do
     --           let
-    --             JSONPath path = demotedPathToText dpath
+    --             JSONPathText path = demotedPathToText dpath
     --           case stl of
     --             SNil -> void $ vWarning $ mmSingleton path
     --               $ pure "union handling error, please report this as bug"
