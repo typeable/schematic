@@ -1,5 +1,5 @@
 name:                schematic
-version:             0.5.0.0
+version:             0.5.1.0
 synopsis:            JSON-biased spec and validation tool
 description:         JSON-biased spec and validation tool. Makes possible to have a schema as a haskell type and derive json instances, validation actions, JSON generation for property-test generically. Built-in lens support.
 license:             BSD3
@@ -65,9 +65,9 @@ library
                      , TypeOperators
                      , TypeSynonymInstances
                      , UndecidableInstances
-  build-depends:       base >=4.11 && <4.13
+  build-depends:       base >=4.11 && <5
                      , bytestring
-                     , aeson >= 1
+                     , aeson >= 1 && < 1.4.3.0
                      , containers
                      , hjsonschema
                      , mtl

@@ -1,5 +1,12 @@
 # Revision history for schematic
 
+## 0.5.1.0 -- 2021-01-15
+
+Fix the generation of json schema for numbers.
+Add array constraints.
+Fix the generation of text and number constraints.
+Remove jsonpath from the error message.
+
 ## 0.5.0.0 -- 2019-02-20
 
 GHC 8.6, json generation by schema definition, validation bug fixes, better
