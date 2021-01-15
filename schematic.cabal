@@ -10,7 +10,7 @@ homepage:            http://github.com/typeable/schematic
 Bug-reports:         http://github.com/typeable/schematic/issues/
 category:            Data
 build-type:          Simple
-extra-source-files:  ChangeLog.md
+extra-source-files:  ChangeLog.md, README.md
 cabal-version:       >=1.10
 
 library
@@ -65,9 +65,9 @@ library
                      , TypeOperators
                      , TypeSynonymInstances
                      , UndecidableInstances
-  build-depends:       base >=4.11 && <4.13
+  build-depends:       base >=4.11 && <5
                      , bytestring
-                     , aeson >= 1
+                     , aeson >= 1 && < 1.4.3.0
                      , containers
                      , hjsonschema
                      , mtl
@@ -118,3 +118,7 @@ test-suite spec
                      , HelpersSpec
                      , LensSpec
                      , JsonSchemaSpec
+
+source-repository head
+  type:     git
+  location: https://github.com/typeable/schematic

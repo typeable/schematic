@@ -1,8 +1,15 @@
 # Revision history for schematic
 
-## 0.6.0.0 -- 2020-02-04
+## 0.6.0.0 -- 2021-01-15
 
 Added compatability with aeson-1.4.3.0. Since version 1.4.3 the module `Data.Aeson` started exporting `JSONPath`, which was conflicting with our own `JSONPath`. Furthermore, started using `JSONPathElement` from `aeson` instead of `DemotedPathSegment`.
+
+## 0.5.1.0 -- 2021-01-15
+
+Fix the generation of json schema for numbers.
+Add array constraints.
+Fix the generation of text and number constraints.
+Remove jsonpath from the error message.
 
 ## 0.5.0.0 -- 2019-02-20
 
