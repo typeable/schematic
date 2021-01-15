@@ -1,0 +1,7 @@
+resolver: lts-13.21
+extra-deps:
+  - hjsonpointer-1.4.0@rev:0
+  - hjsonschema-1.9.0@rev:0
+  - validationt-0.3.0
+nix:
+  packages: [pcre, pkg-config, zlib]
